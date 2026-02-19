@@ -1,6 +1,5 @@
 class User {
-  int _id =0;
-  String _username = '';
+   String _username = '';
   String _password = '';
   double _weight = 0;
   double _height = 0;
@@ -8,17 +7,11 @@ class User {
   User();
 
   User.fromJson(Map<String,dynamic> json)
-    :_id = json['id'],
-     _username = json['username'],
+    :_username = json['username'],
      _password = json['password'],
      _weight = json['weight'],
      _height = json['height']
      ;
-  
-  
- int get id => this._id;
-
- set id(int value) => this._id = value;
 
   get username => this._username;
 

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:prototipo1/cadastro.dart';
+import 'package:prototipo1/chat.dart';
+import 'package:prototipo1/home.dart';
 import 'package:prototipo1/login.dart';
 
 class MainHomeScreen extends StatefulWidget {
@@ -9,7 +12,7 @@ class MainHomeScreen extends StatefulWidget {
 }
 
 class _MainHomeScreenState extends State<MainHomeScreen> {
-  final List<Widget> _tela = [Login()];
+  final List<Widget> _tela = [Cadastro(), Login(), Home(), Chat()];
 
   int _indiceAtual = 0;
 

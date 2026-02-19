@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:prototipo1/home.dart';
 import 'package:prototipo1/user.dart';
 
 class Login extends StatefulWidget {
@@ -23,7 +24,7 @@ class _LoginState extends State<Login> {
   User user = User();
 
   verificacaoLogin(String username, String password) async {
-    final url = Uri.parse('http://172.31.0.1:8080/apiUser/login');
+    final url = Uri.parse('http://localhost:8080/apiUser/login');
     print(url);
     http.Response response = await httpClient.post(
       url,
@@ -34,13 +35,12 @@ class _LoginState extends State<Login> {
     if (response.statusCode == 200) {
       final data = response.body;
       if (!bool.parse(data)) {
+        print("wwrong");
         return 'Nome de usuario ou senha incorretos';
       } else {
-        forceErrorText = null;
-        
-        // Map<String, dynamic> userData = jsonDecode(data);
-        // user = User.fromJson(userData);
+        print("logged");
         setState(() {
+          forceErrorText = null;
           isLoggedIn = true;
           isLoading = false;
         });
@@ -51,10 +51,12 @@ class _LoginState extends State<Login> {
             "Sucesso!",
             style: TextStyle(color: Colors.green),
           ),
-          content: Text("Marmita inserida com sucesso!"),
+          content: Text("Login feito com sucesso!"),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pop(context);
+              },
               child: Text("OK"),
             ),
           ],
@@ -77,17 +79,26 @@ class _LoginState extends State<Login> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if(!isLoggedIn)
             Text(
               "Iniciar Sessão",
               style: TextStyle(fontSize: 28),
               textAlign: TextAlign.center,
-            ),
+            ) 
+            else
+            Text(
+              "Bem Vindo",
+              style: TextStyle(fontSize: 28),
+              textAlign: TextAlign.center,
+            ) 
+            ,
             SizedBox(height: 100,),
             Form(
               key: this._formKey,
               child: Center(
                 child: Column(
                   children: [
+                    if(!isLoggedIn)
                     TextFormField(
                       maxLength: 45,
                       forceErrorText: forceErrorText,
@@ -113,6 +124,7 @@ class _LoginState extends State<Login> {
                         return null;
                       },
                     ),
+                    if(!isLoggedIn)
                     TextFormField(
                       maxLength: 45,
                       obscureText: true,
@@ -141,17 +153,20 @@ class _LoginState extends State<Login> {
                     ),
                     if (isLoading)
                       CircularProgressIndicator()
-                    else
+                    else if(!isLoggedIn)
                       ElevatedButton(
                         onPressed: () async {
+                          print("button");
                           String username = usernameController.text;
                           String password = passwordController.text;
 
-                          final bool isValid =
-                              _formKey.currentState?.validate() ?? false;
-                          if (!isValid) {
-                            return;
-                          }
+                          // bool isValid =
+                          //     _formKey.currentState?.validate() ?? false;
+                          // print(isValid);
+                          // if (!isValid) {
+                          // print("what");
+                          //   return;
+                          // }
 
                           print(
                             usernameController.text +
@@ -161,7 +176,7 @@ class _LoginState extends State<Login> {
 
                           setState(() => isLoading = true);
                           
-                          final String? errorText = await verificacaoLogin(
+                          String? errorText = await verificacaoLogin(
                             username,
                             password,
                           );
@@ -176,6 +191,12 @@ class _LoginState extends State<Login> {
                           }
                         },
                         child: Text('Entrar'),
+                      )
+                      else
+                      ElevatedButton(
+                        onPressed: () {
+                        },
+                        child: Text('Continuar'),
                       ),
                   ],
                 ),
