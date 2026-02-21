@@ -12,7 +12,7 @@ class MainHomeScreen extends StatefulWidget {
 }
 
 class _MainHomeScreenState extends State<MainHomeScreen> {
-  final List<Widget> _tela = [Cadastro(), Login(), Home(), Chat()];
+  final List<Widget> _tela = [Chat(), Login(), Home(), Cadastro()];
 
   int _indiceAtual = 0;
 
