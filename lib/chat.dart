@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:markdown_widget/widget/markdown_block.dart';
 import 'package:prototipo1/message.dart';
 import 'package:prototipo1/user.dart';
 
@@ -27,11 +29,13 @@ class _ChatState extends State<Chat> {
     return Container(
       alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: EdgeInsets.symmetric(horizontal: 1, vertical: 2),
       decoration: BoxDecoration(
         color: msg.isUser ? Colors.orange : Colors.deepOrange,
         borderRadius: BorderRadius.circular(14)),
-      child: Text(msg.message, style: TextStyle(color: msg.isUser ? Colors.white : Colors.black, fontSize: 16),),  
-      
+      child: 
+       MarkdownBlock(data: msg.message,),
+      // Text(msg.message, style: TextStyle(color: msg.isUser ? Colors.white : Colors.white, fontSize: 16),), 
     );
   }
 
@@ -44,26 +48,31 @@ class _ChatState extends State<Chat> {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"prompt": prompt}),
       );
-
+      print("hey");
       if (response.statusCode == 200) {
-        final data = response.body;
-        if (!bool.parse(data)) {
-          return 'erro inesperado';
-        } else {
           print("prompt retornado");
+          
+        print(response.statusCode);
+        print(response.headers);
+        print(response.body);
+        
+        final data =jsonDecode(response.body) as Map<String, dynamic>;
+        
           setState(() {
-            messages.add(ChatMessage(data, false));
+            messages.add(ChatMessage(data['content'], false));
 
             isLoading = false;
           });
           setState(() {});
           return null;
-        }
-      } else {
+        } else {
+        print(response.statusCode);
+        print(response.headers);
+        print(response.body);
         return 'request failed with status: ${response.statusCode}';
       }
     } on Exception catch (e) {
-      return e;
+      return e.toString();
     }
   }
 
@@ -116,7 +125,6 @@ class _ChatState extends State<Chat> {
                 child: Column(
                   children: [
                     TextFormField(
-                      maxLength: 45,
                       forceErrorText: forceErrorText,
                       controller: promptController,
                       decoration: InputDecoration(
@@ -164,6 +172,7 @@ class _ChatState extends State<Chat> {
                           }
 
                           print(promptController.text);
+                          promptController.clear();
 
                           setState(() {
                             isLoading = true;
@@ -173,6 +182,7 @@ class _ChatState extends State<Chat> {
                           scrollToBottom();
 
                           String? errorText = await enviarPrompt(prompt);
+                          print(errorText);
 
                           if (context.mounted) {
                             setState(() {
