@@ -38,7 +38,7 @@ class _CadastroState extends State<Cadastro> {
         return 'Nome de usuario ja existe';
       } else if (data == "error") {
         return 'unknown error';
-      } else if (data == "success"){
+      } else if (data == "success") {
         print("logged");
         setState(() {
           forceErrorText = null;
@@ -174,13 +174,13 @@ class _CadastroState extends State<Cadastro> {
                           String username = usernameController.text;
                           String password = passwordController.text;
 
-                          // bool isValid =
-                          //     _formKey.currentState?.validate() ?? false;
-                          // print(isValid);
-                          // if (!isValid) {
-                          // print("what");
-                          //   return;
-                          // }
+                          bool isValid =
+                              _formKey.currentState?.validate() ?? false;
+                          print(isValid);
+                          if (!isValid) {
+                            print("what");
+                            return;
+                          }
 
                           print(
                             usernameController.text +
