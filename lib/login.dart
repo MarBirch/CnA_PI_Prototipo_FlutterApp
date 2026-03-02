@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:prototipo1/auth_provider.dart';
 import 'package:prototipo1/home.dart';
 import 'package:prototipo1/user.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -39,28 +42,37 @@ class _LoginState extends State<Login> {
         return 'Nome de usuario ou senha incorretos';
       } else {
         print("logged");
+
+        String fakeToken = "abc123"; // Replace with real token
+
         setState(() {
           forceErrorText = null;
           isLoggedIn = true;
           isLoading = false;
         });
         showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text(
-            "Sucesso!",
-            style: TextStyle(color: Colors.green),
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text("Sucesso!", style: TextStyle(color: Colors.green)),
+            content: Text("Login feito com sucesso!"),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await Provider.of<AuthProvider>(
+                    context,
+                    listen: false,
+                  ).login(fakeToken);
+
+                  // then save the user info
+                  final preferences = await SharedPreferences.getInstance();
+                  await preferences.setString('username', username);
+                  await preferences.setString('password', password);
+                },
+                child: Text("Continuar"),
+              ),
+            ],
           ),
-          content: Text("Login feito com sucesso!"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text("OK"),
-            ),
-          ],
-        )
         );
         return null;
       }
@@ -79,81 +91,98 @@ class _LoginState extends State<Login> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if(!isLoggedIn)
-            Text(
-              "Iniciar Sessão",
-              style: TextStyle(fontSize: 28),
-              textAlign: TextAlign.center,
-            ) 
+            if (!isLoggedIn)
+              Text(
+                "Iniciar Sessão",
+                style: TextStyle(fontSize: 28),
+                textAlign: TextAlign.center,
+              )
             else
-            Text(
-              "Bem Vindo",
-              style: TextStyle(fontSize: 28),
-              textAlign: TextAlign.center,
-            ) 
-            ,
-            SizedBox(height: 100,),
+              Text(
+                "Bem Vindo",
+                style: TextStyle(fontSize: 28),
+                textAlign: TextAlign.center,
+              ),
+            SizedBox(height: 100),
             Form(
               key: this._formKey,
               child: Center(
                 child: Column(
                   children: [
-                    if(!isLoggedIn)
-                    TextFormField(
-                      maxLength: 45,
-                      forceErrorText: forceErrorText,
-                      controller: usernameController,
-                      decoration: InputDecoration(
-                        enabledBorder: OutlineInputBorder( 
-                          borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Color.fromARGB(123, 221, 87, 15), width: 0.5),
+                    if (!isLoggedIn)
+                      TextFormField(
+                        maxLength: 45,
+                        forceErrorText: forceErrorText,
+                        controller: usernameController,
+                        decoration: InputDecoration(
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: Color.fromARGB(123, 221, 87, 15),
+                              width: 0.5,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: Color.fromARGB(255, 221, 87, 15),
+                              width: 0.8,
+                            ),
+                          ),
+                          labelStyle: TextStyle(
+                            color: Color.fromARGB(255, 221, 87, 15),
+                          ),
+                          hintStyle: TextStyle(
+                            color: Color.fromARGB(104, 0, 0, 0),
+                          ),
+                          labelText: 'Nome de usuario',
+                          hintText: 'Digite seu nome de usuario',
                         ),
-                        focusedBorder: OutlineInputBorder( 
-                          borderSide: BorderSide(color: Color.fromARGB(255, 221, 87, 15), width: 0.8),
-                        ),
-                        labelStyle: TextStyle(
-                          color: Color.fromARGB(255, 221, 87, 15),
-                        ),
-                        hintStyle: TextStyle(color: Color.fromARGB(104, 0, 0, 0)),
-                        labelText: 'Nome de usuario',
-                        hintText: 'Digite seu nome de usuario',
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Preencha o nome de usuario';
+                          }
+                          return null;
+                        },
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Preencha o nome de usuario';
-                        }
-                        return null;
-                      },
-                    ),
-                    if(!isLoggedIn)
-                    TextFormField(
-                      maxLength: 45,
-                      obscureText: true,
-                      forceErrorText: forceErrorText,
-                      controller: passwordController,
-                      decoration: InputDecoration(
-                        enabledBorder: OutlineInputBorder( 
-                          borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Color.fromARGB(123, 221, 87, 15), width: 0.5),
+                    if (!isLoggedIn)
+                      TextFormField(
+                        maxLength: 45,
+                        obscureText: true,
+                        forceErrorText: forceErrorText,
+                        controller: passwordController,
+                        decoration: InputDecoration(
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: Color.fromARGB(123, 221, 87, 15),
+                              width: 0.5,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: Color.fromARGB(255, 221, 87, 15),
+                              width: 0.8,
+                            ),
+                          ),
+                          labelStyle: TextStyle(
+                            color: Color.fromARGB(255, 221, 87, 15),
+                          ),
+                          hintStyle: TextStyle(
+                            color: Color.fromARGB(104, 0, 0, 0),
+                          ),
+                          labelText: 'Senha',
+                          hintText: 'Digite a sua senha',
                         ),
-                        focusedBorder: OutlineInputBorder( 
-                          borderSide: BorderSide(color: Color.fromARGB(255, 221, 87, 15), width: 0.8),
-                        ),
-                        labelStyle: TextStyle(
-                          color: Color.fromARGB(255, 221, 87, 15),
-                        ),
-                        hintStyle: TextStyle(color: Color.fromARGB(104, 0, 0, 0)),
-                        labelText: 'Senha',
-                        hintText: 'Digite a sua senha',
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Preencha sua senha';
+                          }
+                          return null;
+                        },
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Preencha sua senha';
-                        }
-                        return null;
-                      },
-                    ),
                     if (isLoading)
                       CircularProgressIndicator()
-                    else if(!isLoggedIn)
+                    else if (!isLoggedIn)
                       ElevatedButton(
                         onPressed: () async {
                           print("button");
@@ -175,7 +204,7 @@ class _LoginState extends State<Login> {
                           );
 
                           setState(() => isLoading = true);
-                          
+
                           String? errorText = await verificacaoLogin(
                             username,
                             password,
@@ -192,12 +221,31 @@ class _LoginState extends State<Login> {
                         },
                         child: Text('Entrar'),
                       )
-                      else
+                    else
                       ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          final preferences =
+                              await SharedPreferences.getInstance();
+                          await preferences.setBool('showOnboard', true);
                         },
                         child: Text('Continuar'),
                       ),
+
+                    ElevatedButton(
+                      onPressed: () async {
+                        // call your logout function
+
+                        // set userinfo to null, will rebuild the consumer in main.dart
+                        context.read<AuthProvider>().logout();
+
+                        // then clear the user info from local storage
+                        final preferences =
+                            await SharedPreferences.getInstance();
+                        await preferences.remove('username');
+                        await preferences.remove('password');
+                      },
+                      child: Text("logout"),
+                    ),
                   ],
                 ),
               ),

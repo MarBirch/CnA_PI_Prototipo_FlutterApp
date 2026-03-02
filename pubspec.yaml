@@ -38,6 +38,8 @@ dependencies:
   carousel_slider: ^5.1.2
   markdown: ^7.3.0
   markdown_widget: ^2.3.2+8
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:
