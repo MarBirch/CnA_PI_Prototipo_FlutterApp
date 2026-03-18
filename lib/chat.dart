@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,9 +7,11 @@ import 'package:http/http.dart' as http;
 import 'package:markdown_widget/widget/markdown_block.dart';
 import 'package:prototipo1/message.dart';
 import 'package:prototipo1/user.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Chat extends StatefulWidget {
-  const Chat({super.key});
+  int chatId;
+  Chat(this.chatId,{super.key});
 
   @override
   State<Chat> createState() => _ChatState();
@@ -24,6 +27,59 @@ class _ChatState extends State<Chat> {
   List<ChatMessage> messages = [];
   String? forceErrorText;
   bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Call your method here.
+    pedirChatMessages();
+  }
+
+  pedirChatMessages() async {
+    final url = Uri.parse('http://localhost:8080/apiOllama/chat/messages');
+    print(url);
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      String? username = await preferences.getString('username');
+      //userId
+      http.Response response = await httpClient.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"username": "$username", "prompt" : "empty", "chatId": widget.chatId}),
+      );
+      print("hey");
+      if (response.statusCode == 200) {
+          print("prompt retornado");
+        print(response.statusCode);
+        print(response.headers);
+        print(response.body);
+        
+        Iterable data =jsonDecode(response.body);
+        
+          setState(() {
+          messages = List<ChatMessage>.from(data.map((model)=> ChatMessage.fromJson(model)));
+          for (var i = 0; i < messages.length; i++){
+            if(messages[i].role == "USER"){
+              messages[i].isUser = true;
+            } else {
+              messages[i].isUser = false;
+            }
+          }
+            isLoading = false;
+          });
+          setState(() {});
+          return null;
+        } else {
+        print(response.statusCode);
+        print(response.headers);
+        print(response.body);
+        return 'request failed with status: ${response.statusCode}';
+      }
+    } on Exception catch (e) {
+      return e.toString();
+    }
+  }
+  
 
   Widget buildMessage(ChatMessage msg){
     return Container(
@@ -59,7 +115,7 @@ class _ChatState extends State<Chat> {
         final data =jsonDecode(response.body) as Map<String, dynamic>;
         
           setState(() {
-            messages.add(ChatMessage(data['content'], false));
+            messages.add(ChatMessage(data['content'], "ASSISTANT", false));
 
             isLoading = false;
           });
@@ -176,7 +232,7 @@ class _ChatState extends State<Chat> {
 
                           setState(() {
                             isLoading = true;
-                            messages.add(ChatMessage(prompt, true));
+                            messages.add(ChatMessage(prompt, "USER", true));
                           });
 
                           scrollToBottom();
