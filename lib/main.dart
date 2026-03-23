@@ -5,7 +5,6 @@ import 'package:prototipo1/login.dart';
 import 'package:prototipo1/main_home_screen.dart';
 import 'package:prototipo1/splashscreen.dart';
 import 'package:provider/provider.dart';
-
 void main() {
   runApp(const MyApp());
 }

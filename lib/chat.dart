@@ -102,7 +102,7 @@ class _ChatState extends State<Chat> {
       http.Response response = await httpClient.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"prompt": prompt}),
+        body: jsonEncode({"prompt": prompt, "chatId": widget.chatId}),
       );
       print("hey");
       if (response.statusCode == 200) {
@@ -116,7 +116,6 @@ class _ChatState extends State<Chat> {
         
           setState(() {
             messages.add(ChatMessage(data['content'], "ASSISTANT", false));
-
             isLoading = false;
           });
           setState(() {});
