@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prototipo1/auth_provider.dart';
 import 'package:prototipo1/cadastro.dart';
+import 'package:prototipo1/navigation.dart';
 import 'package:prototipo1/login.dart';
 import 'package:prototipo1/main_home_screen.dart';
 import 'package:prototipo1/splashscreen.dart';
@@ -22,7 +23,7 @@ class MyApp extends StatelessWidget {
     child: Consumer<AuthProvider>(
       builder: (context, auth, _) {
         return MaterialApp(
-          home: auth.isLoggedIn ? MainHomeScreen() : Login(),
+          home: auth.isLoggedIn ? Navigation() : Login(),
         );
       },
     )

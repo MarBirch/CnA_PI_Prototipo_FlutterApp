@@ -73,7 +73,7 @@ class _ChatlistState extends State<Chatlist> {
       http.Response response = await httpClient.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"username": "$username", "prompt" : "empty", "chatId": 2}),
+        body: jsonEncode({"username": "$username", "password" : "empty"}),
       );
       print("hey");
       if (response.statusCode == 200) {
