@@ -39,9 +39,9 @@ class _PedidoState extends State<Pedido> {
 
   Widget construirPedido(PedidoModel pedido){
     return ListTile(
-      title: Text(pedido.user),
+      title: Text(pedido.nomeMarmiteria),
       leading: Icon(Icons.chat_bubble_outline),
-      trailing: Text(pedido.id.toString()),
+      trailing: Text(pedido.dataCriada.toString()),
       onTap: () {
         Navigator.push(
     context,
@@ -57,7 +57,7 @@ class _PedidoState extends State<Pedido> {
         ),
         // Your already built class goes here
         body: Chat(pedido.id), 
-      ),
+      )
     ),
   );
       },
@@ -86,7 +86,9 @@ class _PedidoState extends State<Pedido> {
         Iterable data =jsonDecode(response.body);
         
           setState(() {
-          pedidos = List<PedidoModel>.from(data.map((model)=> PedidoModel.fromJson(model)));
+
+          pedidos = data.map((e) => PedidoModel.fromJson(e)).toList();
+          //pedidos = List<PedidoModel>.from(data.map((model)=> PedidoModel.fromJson(model)));
             isLoading = false;
           });
           setState(() {});
@@ -125,7 +127,7 @@ class _PedidoState extends State<Pedido> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              "Chats",
+              "Pedidos",
               style: TextStyle(fontSize: 28),
               textAlign: TextAlign.center,
             ),

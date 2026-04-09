@@ -32,7 +32,7 @@ class _LoginState extends State<Login> {
     http.Response response = await httpClient.post(
       url,
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"username": username, "password": password}),
+      body: jsonEncode({"username": username, "senha": password}),
     );
 
     if (response.statusCode == 200) {

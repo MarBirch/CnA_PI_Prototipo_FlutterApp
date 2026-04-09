@@ -1,36 +1,62 @@
 import 'dart:ffi';
 
+import 'package:big_decimal/big_decimal.dart';
+
 class PedidoModel {
-  String _user = '';
-  int _id = 0;
+  late DateTime _dataCriada;
+  late DateTime _dataPedido;
+  late int _id;
+  late List<dynamic> _ingredientes;
+  late String _nomeMarmiteria;
+  late String _status;
+  late double _valor;
+  get dataCriada => this._dataCriada;
 
+ set dataCriada( value) => this._dataCriada = value;
 
+  get dataPedido => this._dataPedido;
 
-  PedidoModel (String user, int id){
-    if (user == null){
-      user = "null";
-    }
-    this._user = user;
-    this._id = _id;
+ set dataPedido( value) => this._dataPedido = value;
+
+  get id => this._id;
+
+ set id( value) => this._id = value;
+
+  get ingredientes => this._ingredientes;
+
+ set ingredientes( value) => this._ingredientes = value;
+
+  get nomeMarmiteria => this._nomeMarmiteria;
+
+ set nomeMarmiteria( value) => this._nomeMarmiteria = value;
+
+  get status => this._status;
+
+ set status( value) => this._status = value;
+
+  get valor => this._valor;
+
+ set valor( value) => this._valor = value;
+  
+  PedidoModel(DateTime dataCriada, DateTime dataPedido, int id, List<dynamic> ingredientes, String nomeMarmiteria, String status, double valor){
+    this._dataCriada = dataCriada;
+    this._dataPedido = dataPedido;
+    this._id = id;
+    this._ingredientes = ingredientes;
+    this._nomeMarmiteria = nomeMarmiteria;
+    this._status = status;
+    this._valor = valor;
   }
 
     PedidoModel.fromJson(Map<String, dynamic> json)
-    : this._user = json['valor']?.toString() ?? '',
-     this._id = json['id'] as int;
+    :this._dataCriada = DateTime.parse(json['dataCriada']),
+    this._dataPedido = DateTime.parse(json['dataPedido']),
+    this._id = json['id'] == Null ? 0 : json['id'] as int,
+    this._ingredientes = json['ingredientes'] as List<dynamic>,
+    this._nomeMarmiteria = json['nomeMarmiteria'] as String,
+    this._status = json['status'] as String,
+    this._valor = json['valor'] as double;
   
-  get user => this._user;
-
- set user( value){
-  if (value == null){
-    value = "null";
-  }
-  this._user = value;
-  }
-
-
- get id => this._id;
-
- set id(value) => this._id = value;
 
 
 }
