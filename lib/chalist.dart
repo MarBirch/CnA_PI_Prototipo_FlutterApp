@@ -123,12 +123,18 @@ class _ChatlistState extends State<Chatlist> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            
             Text(
               "Chats",
               style: TextStyle(fontSize: 28),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 100),
+            if (isLoading)
+              Padding(
+                padding: EdgeInsets.all(10),
+                child: CircularProgressIndicator(color: Colors.orangeAccent,),
+              ),
             Expanded(
               child: ListView.builder(
                 controller: scrollController,
@@ -137,11 +143,7 @@ class _ChatlistState extends State<Chatlist> {
               ),
             ),
 
-            if (isLoading)
-              Padding(
-                padding: EdgeInsets.all(10),
-                child: CircularProgressIndicator(),
-              ),
+            
 
             SizedBox(height: 10)
           ],

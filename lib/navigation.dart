@@ -35,7 +35,7 @@ class _NavigationState extends State<Navigation> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 255, 123, 0),
+        backgroundColor: Colors.orange,
         title: Text("Comida & Afeto", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),),
       
         leading: Builder(
@@ -61,12 +61,12 @@ class _NavigationState extends State<Navigation> {
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: BoxDecoration(color: Colors.deepOrangeAccent),
+              decoration: BoxDecoration(color: Colors.orange),
               child: Text('Adicionar Perfil'),
               
             ),
             ListTile(
-              selectedTileColor: Colors.deepOrangeAccent,
+              selectedTileColor: Colors.orangeAccent,
               selectedColor: Colors.black,
               title: const Text('Home'),
               selected: _selectedIndex == 0,
@@ -78,7 +78,7 @@ class _NavigationState extends State<Navigation> {
               },
             ),
             ListTile(
-              selectedTileColor: Colors.deepOrangeAccent,
+              selectedTileColor: Colors.orangeAccent,
               selectedColor: Colors.black,
               title: const Text('Pedidos'),
               selected: _selectedIndex == 1,
@@ -90,7 +90,7 @@ class _NavigationState extends State<Navigation> {
               },
             ),
             ListTile(
-              selectedTileColor: Colors.deepOrangeAccent,
+              selectedTileColor: Colors.orangeAccent,
               selectedColor: Colors.black,
               title: const Text('Chats'),
               selected: _selectedIndex == 2,
@@ -102,7 +102,7 @@ class _NavigationState extends State<Navigation> {
               },
             ),
             ListTile(
-              selectedTileColor: Colors.deepOrangeAccent,
+              selectedTileColor: Colors.orangeAccent,
               selectedColor: Colors.black,
               title: const Text('Cadastro dev'),
               selected: _selectedIndex == 3,
@@ -114,7 +114,7 @@ class _NavigationState extends State<Navigation> {
               },
             ),
             ListTile(
-              selectedTileColor: Colors.deepOrangeAccent,
+              selectedTileColor: Colors.orangeAccent,
               selectedColor: Colors.black,
               title: const Text('Login dev'),
               selected: _selectedIndex == 4,
@@ -126,7 +126,7 @@ class _NavigationState extends State<Navigation> {
               },
             ),
             ListTile(
-              selectedTileColor: Colors.deepOrangeAccent,
+              selectedTileColor: Colors.orangeAccent,
               selectedColor: Colors.black,
               title: const Text('Logout'),
               selected: _selectedIndex == 5,
