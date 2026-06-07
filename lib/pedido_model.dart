@@ -50,12 +50,12 @@ class PedidoModel {
 
     PedidoModel.fromJson(Map<String, dynamic> json)
     :this._dataCriada = DateTime.parse(json['dataCriada']),
-    this._dataPedido = DateTime.parse(json['dataPedido']),
-    this._id = json['id'] == Null ? 0 : json['id'] as int,
-    this._ingredientes = json['ingredientes'] as List<dynamic>,
-    this._nomeMarmiteria = json['nomeMarmiteria'] as String,
-    this._status = json['status'] as String,
-    this._valor = json['valor'] as double;
+    // this._dataPedido = DateTime.parse(json['dataPedido']),
+    this._id = json['id'] ?? 0,
+    this._ingredientes = json['ingredientes'] as List<dynamic>? ?? [],
+    this._nomeMarmiteria = json['nomeMarmiteria'] as String? ?? '',
+    this._status = json['status'] as String? ?? 'DESCONHECIDO',
+    this._valor = (json['valor'] as num?)?.toDouble() ?? 0.0;
   
 
 

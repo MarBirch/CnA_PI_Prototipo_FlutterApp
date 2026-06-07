@@ -6,7 +6,6 @@ class ChatMessage {
   ChatMessage (String message, String role, bool isUser){
     this._message = message;
     this._role = message;
-    
     this._isUser = isUser;
   }
 

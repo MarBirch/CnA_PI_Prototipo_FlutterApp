@@ -1,141 +1,95 @@
 import 'dart:convert';
-import 'dart:ffi';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:markdown_widget/widget/markdown_block.dart';
+import 'package:prototipo1/app_theme.dart';
 import 'package:prototipo1/message.dart';
-import 'package:prototipo1/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Chat extends StatefulWidget {
-  int chatId;
-  Chat(this.chatId,{super.key});
+  final int chatId;
+  const Chat(this.chatId, {super.key});
 
   @override
   State<Chat> createState() => _ChatState();
 }
 
 class _ChatState extends State<Chat> {
-  //variaveis
-
-  var httpClient = http.Client();
+  final _httpClient = http.Client();
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController promptController = TextEditingController();
-  final ScrollController scrollController = ScrollController();
-  List<ChatMessage> messages = [];
-  String? forceErrorText;
-  bool isLoading = false;
+  final _promptController = TextEditingController();
+  final _scrollController = ScrollController();
+
+  List<ChatMessage> _messages = [];
+  String? _errorText;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // Call your method here.
-    pedirChatMessages();
+    _pedirChatMessages();
   }
 
-  pedirChatMessages() async {
-    final url = Uri.parse('http://localhost:8080/apiOllama/chat/messages');
-    print(url);
+  @override
+  void dispose() {
+    _promptController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pedirChatMessages() async {
+    final url =
+        Uri.parse('http://localhost:8080/apiOllama/chat/messages');
     try {
-      final preferences = await SharedPreferences.getInstance();
-      String? username = await preferences.getString('username');
-      //userId
-      http.Response response = await httpClient.post(
+      final prefs = await SharedPreferences.getInstance();
+      final username = prefs.getString('username') ?? '';
+      final response = await _httpClient.post(
         url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"username": "$username", "prompt" : "empty", "chatId": widget.chatId}),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': username,
+          'prompt': 'empty',
+          'chatId': widget.chatId,
+        }),
       );
-      print("hey");
       if (response.statusCode == 200) {
-          print("prompt retornado");
-        print(response.statusCode);
-        print(response.headers);
-        print(response.body);
-        
-        Iterable data =jsonDecode(response.body);
-        
-          setState(() {
-          messages = List<ChatMessage>.from(data.map((model)=> ChatMessage.fromJson(model)));
-          for (var i = 0; i < messages.length; i++){
-            if(messages[i].role == "USER"){
-              messages[i].isUser = true;
-            } else {
-              messages[i].isUser = false;
-            }
+        final Iterable data = jsonDecode(response.body);
+        setState(() {
+          _messages = data.map((m) => ChatMessage.fromJson(m)).toList();
+          for (final msg in _messages) {
+            msg.isUser = msg.role == 'USER' ? true : false;
           }
-            isLoading = false;
-          });
-          setState(() {});
-          return null;
-        } else {
-        print(response.statusCode);
-        print(response.headers);
-        print(response.body);
-        return 'request failed with status: ${response.statusCode}';
+        });
       }
-    } on Exception catch (e) {
-      return e.toString();
-    }
-  }
-  
-
-  Widget buildMessage(ChatMessage msg){
-    return Container(
-      alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      margin: EdgeInsets.symmetric(horizontal: 1, vertical: 2),
-      decoration: BoxDecoration(
-        color: msg.isUser ? Colors.orange : Colors.deepOrange,
-        borderRadius: BorderRadius.circular(14)),
-      child: 
-       MarkdownBlock(data: msg.message,),
-      // Text(msg.message, style: TextStyle(color: msg.isUser ? Colors.white : Colors.white, fontSize: 16),), 
-    );
+    } catch (_) {}
   }
 
-  enviarPrompt(String prompt) async {
+  Future<String?> _enviarPrompt(String prompt) async {
     final url = Uri.parse('http://localhost:8080/apiOllama/prompt');
-    print(url);
     try {
-      http.Response response = await httpClient.post(
+      final response = await _httpClient.post(
         url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"prompt": prompt, "chatId": widget.chatId}),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'prompt': prompt, 'chatId': widget.chatId}),
       );
-      print("hey");
       if (response.statusCode == 200) {
-          print("prompt retornado");
-          
-        print(response.statusCode);
-        print(response.headers);
-        print(response.body);
-        
-        final data =jsonDecode(response.body) as Map<String, dynamic>;
-        
-          setState(() {
-            messages.add(ChatMessage(data['content'], "ASSISTANT", false));
-            isLoading = false;
-          });
-          setState(() {});
-          return null;
-        } else {
-        print(response.statusCode);
-        print(response.headers);
-        print(response.body);
-        return 'request failed with status: ${response.statusCode}';
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        setState(() => _messages.add(
+            ChatMessage(data['content'] as String, 'ASSISTANT', false)));
+        return null;
       }
-    } on Exception catch (e) {
+      return 'Erro: ${response.statusCode}';
+    } catch (e) {
       return e.toString();
     }
   }
 
-  void scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (scrollController.hasClients) {
-        scrollController.animateTo(
-          scrollController.position.maxScrollExtent,
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -143,123 +97,228 @@ class _ChatState extends State<Chat> {
     });
   }
 
-  //UI
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              "Chat",
-              style: TextStyle(fontSize: 28),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 100),
-            Expanded(
-              child: ListView.builder(
-                controller: scrollController,
-                itemCount: messages.length,
-                itemBuilder: (_, i) => buildMessage(messages[i]),
-              ),
-            ),
-
-            if (isLoading)
-              Padding(
-                padding: EdgeInsets.all(10),
-                child: CircularProgressIndicator(),
-              ),
-
-            SizedBox(height: 10),
-            Form(
-              key: this._formKey,
-              child: Center(
-                child: Column(
-                  children: [
-                    TextFormField(
-                      forceErrorText: forceErrorText,
-                      controller: promptController,
-                      decoration: InputDecoration(
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                            color: Color.fromARGB(123, 221, 87, 15),
-                            width: 0.5,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(
-                            color: Color.fromARGB(255, 221, 87, 15),
-                            width: 0.8,
-                          ),
-                        ),
-                        labelStyle: TextStyle(
-                          color: Color.fromARGB(255, 221, 87, 15),
-                        ),
-                        hintStyle: TextStyle(
-                          color: Color.fromARGB(104, 0, 0, 0),
-                        ),
-                        labelText: 'Prompt',
-                        hintText: 'Digite um prompt',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Preencha o prompt';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (!isLoading)
-                      ElevatedButton(
-                        onPressed: () async {
-                          print("button");
-                          String prompt = promptController.text;
-
-                          bool isValid =
-                              _formKey.currentState?.validate() ?? false;
-                          print(isValid);
-                          if (!isValid) {
-                            print("what");
-                            return;
-                          }
-
-                          print(promptController.text);
-                          promptController.clear();
-
-                          setState(() {
-                            isLoading = true;
-                            messages.add(ChatMessage(prompt, "USER", true));
-                          });
-
-                          scrollToBottom();
-
-                          String? errorText = await enviarPrompt(prompt);
-                          print(errorText);
-
-                          if (context.mounted) {
-                            setState(() {
-                              isLoading =false;
-                              scrollToBottom();
-                            });
-
-                            if (errorText != null) {
-                              setState(() {
-                                forceErrorText = errorText;
-                              });
-                            }
-                          }
-                        },
-                        child: Text('Enviar'),
-                      ),
-                  ],
-                ),
-              ),
+  Widget _buildMessage(ChatMessage msg) {
+    final isUser = msg.isUser;
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        // constraints: BoxConstraints(
+        //   maxWidth: MediaQuery.of(context).size.width * 0.78,
+        // ),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isUser ? AppTheme.corPrimaria : AppTheme.corCard,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(14),
+            topRight: const Radius.circular(14),
+            bottomLeft: Radius.circular(isUser ? 14 : 2),
+            bottomRight: Radius.circular(isUser ? 2 : 14),
+          ),
+          border: isUser
+              ? null
+              : Border.all(
+                  color: AppTheme.corBorda.withOpacity(0.35), width: 0.6),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
+        child: isUser
+            ? Text(
+                msg.message as String,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 15, height: 1.4),
+              )
+            : MarkdownBlock(
+                data: msg.message as String,
+                selectable: true,
+              ),
+      ),
+    );
+  }
+
+  Future<void> _onEnviar() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final prompt = _promptController.text.trim();
+    _promptController.clear();
+
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+      _messages.add(ChatMessage(prompt, 'USER', true));
+    });
+    _scrollToBottom();
+
+    final error = await _enviarPrompt(prompt);
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _errorText = error;
+      });
+      _scrollToBottom();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.corFundo,
+      body: Column(
+        children: [
+          // ── Lista de mensagens ─────────────────────────────────────────
+          Expanded(
+            child: _messages.isEmpty && !_isLoading
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.chat_bubble_outline_rounded,
+                            size: 52,
+                            color:
+                                AppTheme.corPrimaria.withOpacity(0.3)),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Nenhuma mensagem ainda.\nEnvie um prompt para começar.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: AppTheme.corSubtexto, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    itemCount: _messages.length,
+                    itemBuilder: (_, i) => _buildMessage(_messages[i]),
+                  ),
+          ),
+
+          // ── Indicador de loading ───────────────────────────────────────
+          if (_isLoading)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  const SizedBox(width: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.corCard,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: AppTheme.corBorda.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.corPrimaria,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Gerando resposta...',
+                          style: TextStyle(
+                              color: AppTheme.corSubtexto, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // ── Campo de entrada ───────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+            decoration: BoxDecoration(
+              color: AppTheme.corCard,
+              border: Border(
+                top: BorderSide(
+                    color: AppTheme.corBorda.withOpacity(0.3), width: 0.6),
+              ),
+            ),
+            child: Form(
+              key: _formKey,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _promptController,
+                      maxLines: 4,
+                      minLines: 1,
+                      decoration: InputDecoration(
+                        hintText: 'Digite um prompt...',
+                        errorText: _errorText,
+                        filled: true,
+                        fillColor: AppTheme.corFundo,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: AppTheme.corBorda.withOpacity(0.4)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                              color: AppTheme.corBorda.withOpacity(0.35)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                              color: AppTheme.corPrimaria, width: 1.4),
+                        ),
+                      ),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? '' : null,
+                      onFieldSubmitted: (_) =>
+                          _isLoading ? null : _onEnviar(),
+                      textInputAction: TextInputAction.newline,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _isLoading
+                      ? const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppTheme.corPrimaria),
+                          ),
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.corPrimaria,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: IconButton(
+                            onPressed: _onEnviar,
+                            icon: const Icon(Icons.send_rounded,
+                                color: Colors.white, size: 20),
+                            tooltip: 'Enviar',
+                          ),
+                        ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

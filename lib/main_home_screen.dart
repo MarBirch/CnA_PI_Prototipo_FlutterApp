@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:prototipo1/cadastro.dart';
 import 'package:prototipo1/chalist.dart';
 import 'package:prototipo1/chat.dart';
 import 'package:prototipo1/home.dart';
 import 'package:prototipo1/login.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class MainHomeScreen extends StatefulWidget {
   const MainHomeScreen({super.key});
@@ -26,10 +28,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 255, 123, 0),
-        title: Text("Comida & Afeto", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),),
-      ),
+  //     appBar: AppBar(
+  //       backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+  //       title: Text("Comida & Afeto", style: GoogleFonts.lato( textStyle: Theme.of(context).textTheme.titleLarge,
+  //   fontSize: 10, fontWeight: FontWeight.w700,fontStyle: FontStyle.italic,
+  // ),),
+  //     centerTitle: true,
+  //     ),
       body: _tela[_indiceAtual],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _indiceAtual,

@@ -1,8 +1,9 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:prototipo1/app_theme.dart';
 import 'package:prototipo1/auth_provider.dart';
-import 'package:prototipo1/home.dart';
 import 'package:prototipo1/user.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,243 +16,238 @@ class Login extends StatefulWidget {
 }
 
 class _LoginState extends State<Login> {
-  //variaveis
-
-  var httpClient = http.Client();
+  final _httpClient = http.Client();
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController usernameController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  String? forceErrorText;
-  bool isLoading = false;
-  bool isLoggedIn = false;
-  User user = User();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
 
-  verificacaoLogin(String username, String password) async {
+  String? _errorText;
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _verificacaoLogin(String username, String password) async {
     final url = Uri.parse('http://localhost:8080/apiUser/login');
-    print(url);
-    http.Response response = await httpClient.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"username": username, "senha": password}),
-    );
-
-    if (response.statusCode == 200) {
-      final data = response.body;
-      if (!bool.parse(data)) {
-        print("wwrong");
-        
-        return 'Nome de usuario ou senha incorretos';
-      } else {
-        print("logged");
-
-        String fakeToken = "abc123"; // Replace with real token
-
-        setState(() {
-          forceErrorText = null;
-          isLoggedIn = true;
-          isLoading = false;
-        });
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: Text("Sucesso!", style: TextStyle(color: Colors.green)),
-            content: Text("Login feito com sucesso!"),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await Provider.of<AuthProvider>(
-                    context,
-                    listen: false,
-                  ).login(fakeToken);
-
-                  // then save the user info
-                  final preferences = await SharedPreferences.getInstance();
-                  await preferences.setString('username', username);
-                  await preferences.setString('password', password);
-                },
-                child: Text("Continuar"),
-              ),
-            ],
-          ),
-        );
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': username, 'senha': password}),
+      );
+      if (response.statusCode == 200) {
+        if (!bool.parse(response.body)) {
+          return 'Nome de usuário ou senha incorretos';
+        }
+        // Login bem-sucedido
+        if (context.mounted) {
+          await Provider.of<AuthProvider>(context, listen: false)
+              .login('token_$username');
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('username', username);
+          await prefs.setString('password', password);
+        }
         return null;
       }
-    } else {
-      return 'request failed with status: ${response.statusCode}';
+      return 'Falha na requisição: ${response.statusCode}';
+    } catch (e) {
+      return 'Erro de conexão: $e';
     }
   }
 
-  //UI
+  Future<void> _onEntrar() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+
+    final error = await _verificacaoLogin(
+      _usernameController.text.trim(),
+      _passwordController.text,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _errorText = error;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (!isLoggedIn)
-              Text(
-                "Iniciar Sessão",
-                style: TextStyle(fontSize: 28),
-                textAlign: TextAlign.center,
-              )
-            else
-              Text(
-                "Bem Vindo",
-                style: TextStyle(fontSize: 28),
-                textAlign: TextAlign.center,
-              ),
-            SizedBox(height: 100),
-            Form(
-              key: this._formKey,
-              child: Center(
-                child: Column(
-                  children: [
-                    if (!isLoggedIn)
-                      TextFormField(
-                        maxLength: 45,
-                        forceErrorText: forceErrorText,
-                        controller: usernameController,
-                        decoration: InputDecoration(
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(
-                              color: Color.fromARGB(123, 221, 87, 15),
-                              width: 0.5,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: Color.fromARGB(255, 221, 87, 15),
-                              width: 0.8,
-                            ),
-                          ),
-                          labelStyle: TextStyle(
-                            color: Color.fromARGB(255, 221, 87, 15),
-                          ),
-                          hintStyle: TextStyle(
-                            color: Color.fromARGB(104, 0, 0, 0),
-                          ),
-                          labelText: 'Nome de usuario',
-                          hintText: 'Digite seu nome de usuario',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Preencha o nome de usuario';
-                          }
-                          return null;
-                        },
-                      ),
-                    if (!isLoggedIn)
-                      TextFormField(
-                        maxLength: 45,
-                        obscureText: true,
-                        forceErrorText: forceErrorText,
-                        controller: passwordController,
-                        decoration: InputDecoration(
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(
-                              color: Color.fromARGB(123, 221, 87, 15),
-                              width: 0.5,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                              color: Color.fromARGB(255, 221, 87, 15),
-                              width: 0.8,
-                            ),
-                          ),
-                          labelStyle: TextStyle(
-                            color: Color.fromARGB(255, 221, 87, 15),
-                          ),
-                          hintStyle: TextStyle(
-                            color: Color.fromARGB(104, 0, 0, 0),
-                          ),
-                          labelText: 'Senha',
-                          hintText: 'Digite a sua senha',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Preencha sua senha';
-                          }
-                          return null;
-                        },
-                      ),
-                    if (isLoading)
-                      CircularProgressIndicator()
-                    else if (!isLoggedIn)
-                      ElevatedButton(
-                        onPressed: () async {
-                          print("button");
-                          String username = usernameController.text;
-                          String password = passwordController.text;
-
-                          // bool isValid =
-                          //     _formKey.currentState?.validate() ?? false;
-                          // print(isValid);
-                          // if (!isValid) {
-                          // print("what");
-                          //   return;
-                          // }
-
-                          print(
-                            usernameController.text +
-                                "" +
-                                passwordController.text,
-                          );
-
-                          setState(() => isLoading = true);
-
-                          String? errorText = await verificacaoLogin(
-                            username,
-                            password,
-                          );
-
-                          if (context.mounted) {
-                            setState(() => isLoading = false);
-                            if (errorText != null) {
-                              setState(() {
-                                forceErrorText = errorText;
-                              });
-                            }
-                          }
-                        },
-                        child: Text('Entrar'),
-                      )
-                    else
-                      ElevatedButton(
-                        onPressed: () async {
-                          final preferences =
-                              await SharedPreferences.getInstance();
-                          await preferences.setBool('showOnboard', true);
-                        },
-                        child: Text('Continuar'),
-                      ),
-
-                    ElevatedButton(
-                      onPressed: () async {
-                        // call your logout function
-
-                        // set userinfo to null, will rebuild the consumer in main.dart
-                        context.read<AuthProvider>().logout();
-
-                        // then clear the user info from local storage
-                        final preferences =
-                            await SharedPreferences.getInstance();
-                        await preferences.remove('username');
-                        await preferences.remove('password');
-                      },
-                      child: Text("logout"),
-                    ),
-                  ],
+      backgroundColor: AppTheme.corFundo,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // ── Logo / Título ────────────────────────────────────────
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: AppTheme.corPrimaria,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(Icons.lunch_dining_rounded,
+                      color: Colors.white, size: 40),
                 ),
-              ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Comida & Afeto',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.corPrimaria,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Faça login para continuar',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.corSubtexto,
+                  ),
+                ),
+
+                const SizedBox(height: 36),
+
+                // ── Card de login ────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    color: AppTheme.corCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: AppTheme.corBorda.withOpacity(0.4), width: 0.8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.corPrimaria.withOpacity(0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Entrar',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.corTexto,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Usuário
+                        TextFormField(
+                          controller: _usernameController,
+                          maxLength: 45,
+                          decoration: const InputDecoration(
+                            labelText: 'Nome de usuário',
+                            hintText: 'Digite seu nome de usuário',
+                            prefixIcon: Icon(Icons.person_outline,
+                                color: AppTheme.corSubtexto, size: 20),
+                            counterText: '',
+                          ),
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? 'Preencha o nome de usuário'
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Senha
+                        TextFormField(
+                          controller: _passwordController,
+                          maxLength: 45,
+                          obscureText: _obscurePassword,
+                          decoration: InputDecoration(
+                            labelText: 'Senha',
+                            hintText: 'Digite sua senha',
+                            prefixIcon: const Icon(Icons.lock_outline,
+                                color: AppTheme.corSubtexto, size: 20),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: AppTheme.corSubtexto,
+                                size: 20,
+                              ),
+                              onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword),
+                            ),
+                            counterText: '',
+                          ),
+                          validator: (v) =>
+                              (v == null || v.isEmpty) ? 'Preencha sua senha' : null,
+                        ),
+
+                        // Mensagem de erro
+                        if (_errorText != null) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.corErro.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: AppTheme.corErro.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    color: AppTheme.corErro, size: 16),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorText!,
+                                    style: const TextStyle(
+                                        color: AppTheme.corErro, fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 22),
+
+                        // Botão Entrar
+                        if (_isLoading)
+                          const Center(
+                            child: CircularProgressIndicator(
+                                color: AppTheme.corPrimaria),
+                          )
+                        else
+                          ElevatedButton.icon(
+                            onPressed: _onEntrar,
+                            icon: const Icon(Icons.login_rounded, size: 18),
+                            label: const Text('Entrar'),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

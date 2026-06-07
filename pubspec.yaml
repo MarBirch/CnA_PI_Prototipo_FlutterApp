@@ -41,6 +41,7 @@ dependencies:
   markdown_widget: ^2.3.2+8
   provider: ^6.1.5+1
   shared_preferences: ^2.5.4
+  google_fonts: ^8.0.2
 
 dev_dependencies:
   flutter_test:
@@ -81,7 +82,10 @@ flutter:
   # list giving the asset and other descriptors for the font. For
   # example:
   # fonts:
-  #   - family: Schyler
+  #   - family: RobotoF
+  #     fonts:
+  #       - asset: fonts/Roboto-VariableFont_wdth,wght.ttf
+  #    - family: Schyler
   #     fonts:
   #       - asset: fonts/Schyler-Regular.ttf
   #       - asset: fonts/Schyler-Italic.ttf
