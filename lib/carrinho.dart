@@ -68,7 +68,7 @@ class _CarrinhoState extends State<Carrinho> {
     final url = Uri.parse('http://localhost:8080/apiPedido/inserir');
     try {
       final body = {
-        'nomeCliente': _nomeCliente,
+        'username': _nomeCliente,
         'cardapioId': widget.cardapio.id,
         'ingredientes': _itens
             .map((item) => {

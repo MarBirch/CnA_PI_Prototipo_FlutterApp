@@ -1,62 +1,73 @@
-import 'dart:ffi';
+class IngredientePedido {
+  final int id;
+  final String nome;
+  final double valorPorGramas;
+  final double gramas;
+  final int posicao;
 
-import 'package:big_decimal/big_decimal.dart';
+  IngredientePedido({
+    required this.id,
+    required this.nome,
+    required this.valorPorGramas,
+    required this.gramas,
+    required this.posicao,
+  });
+
+  double get subtotal => valorPorGramas * gramas;
+
+  factory IngredientePedido.fromJson(Map<String, dynamic> j) =>
+      IngredientePedido(
+        id: (j['id'] as num?)?.toInt() ?? 0,
+        nome: j['nome'] as String? ?? '',
+        valorPorGramas: (j['valorPorGramas'] as num?)?.toDouble() ?? 0.0,
+        gramas: (j['gramas'] as num?)?.toDouble() ?? 0.0,
+        posicao: (j['posicao'] as num?)?.toInt() ?? 0,
+      );
+}
 
 class PedidoModel {
   late DateTime _dataCriada;
-  late DateTime _dataPedido;
   late int _id;
-  late List<dynamic> _ingredientes;
+  late List<IngredientePedido> _ingredientes;
   late String _nomeMarmiteria;
   late String _status;
   late double _valor;
-  get dataCriada => this._dataCriada;
+  late String _cardapioNome;
+  late int _cardapioId;
 
- set dataCriada( value) => this._dataCriada = value;
+  get dataCriada => _dataCriada;
+  set dataCriada(value) => _dataCriada = value;
 
-  get dataPedido => this._dataPedido;
+  get id => _id;
+  set id(value) => _id = value;
 
- set dataPedido( value) => this._dataPedido = value;
+  get ingredientes => _ingredientes;
+  set ingredientes(value) => _ingredientes = value;
 
-  get id => this._id;
+  get nomeMarmiteria => _nomeMarmiteria;
+  set nomeMarmiteria(value) => _nomeMarmiteria = value;
 
- set id( value) => this._id = value;
+  get status => _status;
+  set status(value) => _status = value;
 
-  get ingredientes => this._ingredientes;
+  get valor => _valor;
+  set valor(value) => _valor = value;
 
- set ingredientes( value) => this._ingredientes = value;
+  get cardapioNome => _cardapioNome;
+  set cardapioNome(value) => _cardapioNome = value;
 
-  get nomeMarmiteria => this._nomeMarmiteria;
+  get cardapioId => _cardapioId;
+  set cardapioId(value) => _cardapioId = value;
 
- set nomeMarmiteria( value) => this._nomeMarmiteria = value;
-
-  get status => this._status;
-
- set status( value) => this._status = value;
-
-  get valor => this._valor;
-
- set valor( value) => this._valor = value;
-  
-  PedidoModel(DateTime dataCriada, DateTime dataPedido, int id, List<dynamic> ingredientes, String nomeMarmiteria, String status, double valor){
-    this._dataCriada = dataCriada;
-    this._dataPedido = dataPedido;
-    this._id = id;
-    this._ingredientes = ingredientes;
-    this._nomeMarmiteria = nomeMarmiteria;
-    this._status = status;
-    this._valor = valor;
-  }
-
-    PedidoModel.fromJson(Map<String, dynamic> json)
-    :this._dataCriada = DateTime.parse(json['dataCriada']),
-    // this._dataPedido = DateTime.parse(json['dataPedido']),
-    this._id = json['id'] ?? 0,
-    this._ingredientes = json['ingredientes'] as List<dynamic>? ?? [],
-    this._nomeMarmiteria = json['nomeMarmiteria'] as String? ?? '',
-    this._status = json['status'] as String? ?? 'DESCONHECIDO',
-    this._valor = (json['valor'] as num?)?.toDouble() ?? 0.0;
-  
-
-
+  PedidoModel.fromJson(Map<String, dynamic> json)
+      : _dataCriada = DateTime.parse(json['dataCriada']),
+        _id = (json['id'] as num?)?.toInt() ?? 0,
+        _ingredientes = ((json['ingredientes'] as List?) ?? [])
+            .map((e) => IngredientePedido.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        _nomeMarmiteria = json['nomeMarmiteria'] as String? ?? '',
+        _status = json['status'] as String? ?? 'DESCONHECIDO',
+        _valor = (json['valor'] as num?)?.toDouble() ?? 0.0,
+        _cardapioNome = json['cardapioNome'] as String? ?? '',
+        _cardapioId = (json['cardapioId'] as num?)?.toInt() ?? 0;
 }

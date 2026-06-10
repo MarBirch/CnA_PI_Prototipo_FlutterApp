@@ -404,7 +404,7 @@ class _CardapioState extends State<Cardapio> {
               ElevatedButton.icon(
                 onPressed: _irParaCarrinho,
                 icon: const Icon(Icons.shopping_cart_rounded, size: 18),
-                label: const Text('Ver carrinho'),
+                label: const Text('Adicionar ao carrinho'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 20, vertical: 12),

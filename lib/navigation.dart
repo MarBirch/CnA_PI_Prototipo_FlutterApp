@@ -202,17 +202,6 @@ class _NavigationState extends State<Navigation> {
                     label: 'Conta',
                     index: 3,
                   ),
-                  _drawerItem(
-                    icon: Icons.manage_accounts_outlined,
-                    label: 'Marmiteria',
-                    index: 4,
-                  ),
-                  _drawerItem(
-                    icon: Icons.manage_accounts_outlined,
-                    label: 'Cardapio',
-                    index: 5,
-                  ),
-
                   const SizedBox(height: 8),
                   Divider(
                       color: AppTheme.corBorda.withOpacity(0.3)),
