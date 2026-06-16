@@ -5,6 +5,7 @@ import 'package:prototipo1/auth_provider.dart';
 import 'package:prototipo1/cadastro.dart';
 import 'package:prototipo1/carrinho.dart';
 import 'package:prototipo1/chalist.dart';
+import 'package:prototipo1/configuracoes.dart';
 import 'package:prototipo1/home.dart';
 import 'package:prototipo1/marmiteria.dart';
 import 'package:prototipo1/pedidos.dart';
@@ -23,17 +24,17 @@ class _NavigationState extends State<Navigation> {
   String _username = '';
 
   static final List<Widget> _screens = [
-    const Pedido(),
     const Home(),
+    const Pedido(),
     const Chatlist(),
-    const Cadastro(),
+    const Configuracoes(),
   ];
 
   static const List<_NavItem> _navItems = [
-    _NavItem(icon: Icons.receipt_long_outlined,
-        activeIcon: Icons.receipt_long_rounded, label: 'Pedidos'),
     _NavItem(icon: Icons.home_outlined,
         activeIcon: Icons.home_rounded, label: 'Início'),
+    _NavItem(icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long_rounded, label: 'Pedidos'),
     _NavItem(icon: Icons.chat_bubble_outline_rounded,
         activeIcon: Icons.chat_bubble_rounded, label: 'Chats'),
     _NavItem(icon: Icons.manage_accounts_outlined,
@@ -183,13 +184,13 @@ class _NavigationState extends State<Navigation> {
                     horizontal: 12, vertical: 4),
                 children: [
                   _drawerItem(
-                    icon: Icons.receipt_long_outlined,
-                    label: 'Pedidos',
+                    icon: Icons.home_outlined,
+                    label: 'Início',
                     index: 0,
                   ),
                   _drawerItem(
-                    icon: Icons.home_outlined,
-                    label: 'Início',
+                    icon: Icons.receipt_long_outlined,
+                    label: 'Pedidos',
                     index: 1,
                   ),
                   _drawerItem(

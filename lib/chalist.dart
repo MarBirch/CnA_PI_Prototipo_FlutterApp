@@ -28,6 +28,8 @@ class _ChatlistState extends State<Chatlist> {
     _pedirChatList();
   }
 
+  // ── Carrega lista de chats do usuário ────────────────────────────────────
+
   Future<void> _pedirChatList() async {
     final url = Uri.parse('http://localhost:8080/apiOllama/chatlist');
     try {
@@ -58,7 +60,159 @@ class _ChatlistState extends State<Chatlist> {
     }
   }
 
+  // ── Cria novo chat com o primeiro prompt ─────────────────────────────────
+
+  Future<void> _criarNovoChat() async {
+    final promptController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.corCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.corPrimaria.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.add_comment_rounded,
+                  color: AppTheme.corPrimaria, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Novo Chat',
+              style: TextStyle(
+                color: AppTheme.corTexto,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Envie a primeira mensagem para iniciar uma nova conversa com a assistente nutricional.',
+              style: TextStyle(color: AppTheme.corSubtexto, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: promptController,
+              maxLines: 3,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Ex: Quais são os benefícios da aveia?',
+                hintStyle: TextStyle(
+                    color: AppTheme.corSubtexto.withOpacity(0.6), fontSize: 13),
+                filled: true,
+                fillColor: AppTheme.corFundo,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      BorderSide(color: AppTheme.corBorda.withOpacity(0.4)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      BorderSide(color: AppTheme.corBorda.withOpacity(0.3)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      const BorderSide(color: AppTheme.corPrimaria, width: 1.4),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar',
+                style: TextStyle(color: AppTheme.corSubtexto)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.send_rounded, size: 15),
+            label: const Text('Iniciar'),
+          ),
+        ],
+      ),
+    );
+
+    promptController.dispose();
+
+    if (confirmed != true) return;
+
+    final prompt = promptController.text.trim();
+    if (prompt.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Digite uma mensagem para iniciar o chat.'),
+          backgroundColor: AppTheme.corErro,
+        ));
+      }
+      return;
+    }
+
+    // Mostra loading
+    if (mounted) setState(() => _isLoading = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final username = prefs.getString('username') ?? '';
+
+      final url = Uri.parse('http://localhost:8080/apiOllama/chat');
+      final response = await _httpClient.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': username,
+          'prompt': prompt,
+          'chatId': null,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Recarrega lista para pegar o novo chat
+        await _pedirChatList();
+
+        // Abre o chat mais recente (último da lista)
+        if (mounted && _chats.isNotEmpty) {
+          final novoChat = _chats.last;
+          _abrirChat(novoChat);
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro ao criar chat: ${response.statusCode}'),
+            backgroundColor: AppTheme.corErro,
+          ));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erro de conexão: $e'),
+          backgroundColor: AppTheme.corErro,
+        ));
+      }
+    }
+  }
+
+  // ── Abre chat existente ──────────────────────────────────────────────────
+
   void _abrirChat(ChatModel chat) {
+    final titulo = chat.title as String;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -66,7 +220,7 @@ class _ChatlistState extends State<Chatlist> {
           backgroundColor: AppTheme.corFundo,
           appBar: AppBar(
             title: Text(
-              chat.title as String,
+              titulo,
               style: const TextStyle(
                 color: AppTheme.corDestaque,
                 fontSize: 18,
@@ -94,6 +248,8 @@ class _ChatlistState extends State<Chatlist> {
     );
   }
 
+  // ── Card de cada chat ────────────────────────────────────────────────────
+
   Widget _buildChatTile(ChatModel chat, int index) {
     final colors = [
       AppTheme.corPrimaria,
@@ -101,6 +257,7 @@ class _ChatlistState extends State<Chatlist> {
       AppTheme.corSecundaria,
     ];
     final accentColor = colors[index % colors.length];
+    final titulo = chat.title as String;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
@@ -109,9 +266,12 @@ class _ChatlistState extends State<Chatlist> {
         borderRadius: BorderRadius.circular(12),
         border: Border(
           left: BorderSide(color: accentColor, width: 4),
-          top: BorderSide(color: AppTheme.corBorda.withOpacity(0.25), width: 0.5),
-          right: BorderSide(color: AppTheme.corBorda.withOpacity(0.25), width: 0.5),
-          bottom: BorderSide(color: AppTheme.corBorda.withOpacity(0.25), width: 0.5),
+          top: BorderSide(
+              color: AppTheme.corBorda.withOpacity(0.25), width: 0.5),
+          right: BorderSide(
+              color: AppTheme.corBorda.withOpacity(0.25), width: 0.5),
+          bottom: BorderSide(
+              color: AppTheme.corBorda.withOpacity(0.25), width: 0.5),
         ),
         boxShadow: [
           BoxShadow(
@@ -135,7 +295,7 @@ class _ChatlistState extends State<Chatlist> {
               color: accentColor, size: 20),
         ),
         title: Text(
-          chat.title as String,
+          titulo,
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
@@ -143,9 +303,8 @@ class _ChatlistState extends State<Chatlist> {
           ),
         ),
         subtitle: Text(
-          'Chat #${chat.id}',
-          style: const TextStyle(
-              fontSize: 12, color: AppTheme.corSubtexto),
+          'Conversa #${chat.id}',
+          style: const TextStyle(fontSize: 12, color: AppTheme.corSubtexto),
         ),
         trailing: const Icon(
           Icons.chevron_right_rounded,
@@ -157,6 +316,8 @@ class _ChatlistState extends State<Chatlist> {
     );
   }
 
+  // ── Build ────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -164,7 +325,7 @@ class _ChatlistState extends State<Chatlist> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Cabeçalho ────────────────────────────────────────────────
+          // ── Cabeçalho ──────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
             child: Row(
@@ -190,6 +351,7 @@ class _ChatlistState extends State<Chatlist> {
                     ],
                   ),
                 ),
+                // Botão atualizar
                 IconButton(
                   icon: const Icon(Icons.refresh_rounded,
                       color: AppTheme.corSecundaria),
@@ -198,6 +360,21 @@ class _ChatlistState extends State<Chatlist> {
                     setState(() => _isLoading = true);
                     _pedirChatList();
                   },
+                ),
+                const SizedBox(width: 4),
+                // Botão novo chat
+                ElevatedButton.icon(
+                  onPressed: _criarNovoChat,
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('Novo chat'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    textStyle: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.bold),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
               ],
             ),
@@ -211,7 +388,7 @@ class _ChatlistState extends State<Chatlist> {
 
           const SizedBox(height: 8),
 
-          // ── Conteúdo ─────────────────────────────────────────────────
+          // ── Conteúdo ───────────────────────────────────────────────────
           Expanded(
             child: _isLoading
                 ? const Center(
@@ -224,14 +401,12 @@ class _ChatlistState extends State<Chatlist> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.wifi_off_rounded,
-                                size: 48,
-                                color: AppTheme.corSubtexto),
+                                size: 48, color: AppTheme.corSubtexto),
                             const SizedBox(height: 12),
                             Text(
                               _errorMsg!,
                               style: const TextStyle(
-                                  color: AppTheme.corSubtexto,
-                                  fontSize: 14),
+                                  color: AppTheme.corSubtexto, fontSize: 14),
                             ),
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
@@ -255,14 +430,20 @@ class _ChatlistState extends State<Chatlist> {
                               children: [
                                 Icon(Icons.chat_bubble_outline_rounded,
                                     size: 52,
-                                    color: AppTheme.corPrimaria
-                                        .withOpacity(0.3)),
+                                    color:
+                                        AppTheme.corPrimaria.withOpacity(0.3)),
                                 const SizedBox(height: 12),
                                 const Text(
-                                  'Nenhum chat encontrado.',
+                                  'Nenhuma conversa ainda.',
                                   style: TextStyle(
                                       color: AppTheme.corSubtexto,
                                       fontSize: 14),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: _criarNovoChat,
+                                  icon: const Icon(Icons.add_rounded, size: 16),
+                                  label: const Text('Iniciar primeiro chat'),
                                 ),
                               ],
                             ),

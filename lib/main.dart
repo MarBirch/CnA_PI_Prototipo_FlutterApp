@@ -16,13 +16,14 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
     child: Consumer<AuthProvider>(
       builder: (context, auth, _) {
-        return MaterialApp(
+        return MaterialApp( debugShowCheckedModeBanner: false,
           home: auth.isLoggedIn ? Navigation() : Login(),
         );
       },

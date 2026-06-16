@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:prototipo1/app_theme.dart';
 import 'package:prototipo1/auth_provider.dart';
+import 'package:prototipo1/cadastro.dart';
+import 'package:prototipo1/home.dart';
+import 'package:prototipo1/navigation.dart';
 import 'package:prototipo1/user.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,13 +47,28 @@ class _LoginState extends State<Login> {
         if (!bool.parse(response.body)) {
           return 'Nome de usuário ou senha incorretos';
         }
-        // Login bem-sucedido
         if (context.mounted) {
-          await Provider.of<AuthProvider>(context, listen: false)
-              .login('token_$username');
+          await Provider.of<AuthProvider>(
+            context,
+            listen: false,
+          ).login('token_$username');
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('username', username);
           await prefs.setString('password', password);
+
+          // Busca e salva o userId
+          try {
+            final idUrl = Uri.parse(
+              'http://localhost:8080/apiUser/id?username=$username',
+            );
+            final idResp = await _httpClient.get(idUrl);
+            if (idResp.statusCode == 200) {
+              final userId = int.tryParse(idResp.body.trim());
+              if (userId != null) {
+                await prefs.setInt('userId', userId);
+              }
+            }
+          } catch (_) {}
         }
         return null;
       }
@@ -100,8 +118,11 @@ class _LoginState extends State<Login> {
                     color: AppTheme.corPrimaria,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(Icons.lunch_dining_rounded,
-                      color: Colors.white, size: 40),
+                  child: const Icon(
+                    Icons.lunch_dining_rounded,
+                    color: Colors.white,
+                    size: 40,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -115,10 +136,7 @@ class _LoginState extends State<Login> {
                 const SizedBox(height: 4),
                 const Text(
                   'Faça login para continuar',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.corSubtexto,
-                  ),
+                  style: TextStyle(fontSize: 14, color: AppTheme.corSubtexto),
                 ),
 
                 const SizedBox(height: 36),
@@ -130,7 +148,9 @@ class _LoginState extends State<Login> {
                     color: AppTheme.corCard,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                        color: AppTheme.corBorda.withOpacity(0.4), width: 0.8),
+                      color: AppTheme.corBorda.withOpacity(0.4),
+                      width: 0.8,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: AppTheme.corPrimaria.withOpacity(0.08),
@@ -161,8 +181,11 @@ class _LoginState extends State<Login> {
                           decoration: const InputDecoration(
                             labelText: 'Nome de usuário',
                             hintText: 'Digite seu nome de usuário',
-                            prefixIcon: Icon(Icons.person_outline,
-                                color: AppTheme.corSubtexto, size: 20),
+                            prefixIcon: Icon(
+                              Icons.person_outline,
+                              color: AppTheme.corSubtexto,
+                              size: 20,
+                            ),
                             counterText: '',
                           ),
                           validator: (v) => (v == null || v.isEmpty)
@@ -179,8 +202,11 @@ class _LoginState extends State<Login> {
                           decoration: InputDecoration(
                             labelText: 'Senha',
                             hintText: 'Digite sua senha',
-                            prefixIcon: const Icon(Icons.lock_outline,
-                                color: AppTheme.corSubtexto, size: 20),
+                            prefixIcon: const Icon(
+                              Icons.lock_outline,
+                              color: AppTheme.corSubtexto,
+                              size: 20,
+                            ),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
@@ -190,12 +216,14 @@ class _LoginState extends State<Login> {
                                 size: 20,
                               ),
                               onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
                             ),
                             counterText: '',
                           ),
-                          validator: (v) =>
-                              (v == null || v.isEmpty) ? 'Preencha sua senha' : null,
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? 'Preencha sua senha'
+                              : null,
                         ),
 
                         // Mensagem de erro
@@ -203,23 +231,31 @@ class _LoginState extends State<Login> {
                           const SizedBox(height: 10),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.corErro.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: AppTheme.corErro.withOpacity(0.3)),
+                                color: AppTheme.corErro.withOpacity(0.3),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline,
-                                    color: AppTheme.corErro, size: 16),
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: AppTheme.corErro,
+                                  size: 16,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _errorText!,
                                     style: const TextStyle(
-                                        color: AppTheme.corErro, fontSize: 13),
+                                      color: AppTheme.corErro,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -233,7 +269,8 @@ class _LoginState extends State<Login> {
                         if (_isLoading)
                           const Center(
                             child: CircularProgressIndicator(
-                                color: AppTheme.corPrimaria),
+                              color: AppTheme.corPrimaria,
+                            ),
                           )
                         else
                           ElevatedButton.icon(
@@ -241,6 +278,20 @@ class _LoginState extends State<Login> {
                             icon: const Icon(Icons.login_rounded, size: 18),
                             label: const Text('Entrar'),
                           ),
+
+                        TextButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const Cadastro(),
+                              ),
+                            );
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.login_rounded, size: 18),
+                          label: const Text('Cadastro'),
+                        ),
                       ],
                     ),
                   ),

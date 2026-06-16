@@ -368,48 +368,48 @@ class _HomeState extends State<Home> {
             children: [
               const SizedBox(height: 24),
 
-              // ── Carrossel ────────────────────────────────────────────
-              CarouselSlider(
-                options: CarouselOptions(
-                  autoPlay: true,
-                  enlargeCenterPage: true,
-                  height: 220,
-                  aspectRatio: 16 / 9,
-                  enableInfiniteScroll: true,
-                  scrollDirection: Axis.horizontal,
-                  viewportFraction: 0.88,
-                  autoPlayInterval: const Duration(seconds: 4),
-                  onPageChanged: (i, _) =>
-                      setState(() => _currentSlide = i),
-                ),
-                items: _imgList.map((item) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Image.asset(item, fit: BoxFit.cover),
-                  );
-                }).toList(),
-              ),
+              // // ── Carrossel ────────────────────────────────────────────
+              // CarouselSlider(
+              //   options: CarouselOptions(
+              //     autoPlay: true,
+              //     enlargeCenterPage: true,
+              //     height: 220,
+              //     aspectRatio: 16 / 9,
+              //     enableInfiniteScroll: true,
+              //     scrollDirection: Axis.horizontal,
+              //     viewportFraction: 0.88,
+              //     autoPlayInterval: const Duration(seconds: 4),
+              //     onPageChanged: (i, _) =>
+              //         setState(() => _currentSlide = i),
+              //   ),
+              //   items: _imgList.map((item) {
+              //     return ClipRRect(
+              //       borderRadius: BorderRadius.circular(14),
+              //       child: Image.asset(item, fit: BoxFit.cover),
+              //     );
+              //   }).toList(),
+              // ),
 
-              // Indicadores do carrossel
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: _imgList.asMap().entries.map((entry) {
-                  return Container(
-                    width: _currentSlide == entry.key ? 20 : 7,
-                    height: 7,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: _currentSlide == entry.key
-                          ? AppTheme.corPrimaria
-                          : AppTheme.corBorda.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  );
-                }).toList(),
-              ),
+              // // Indicadores do carrossel
+              // const SizedBox(height: 12),
+              // Row(
+              //   mainAxisAlignment: MainAxisAlignment.center,
+              //   children: _imgList.asMap().entries.map((entry) {
+              //     return Container(
+              //       width: _currentSlide == entry.key ? 20 : 7,
+              //       height: 7,
+              //       margin: const EdgeInsets.symmetric(horizontal: 3),
+              //       decoration: BoxDecoration(
+              //         color: _currentSlide == entry.key
+              //             ? AppTheme.corPrimaria
+              //             : AppTheme.corBorda.withOpacity(0.3),
+              //         borderRadius: BorderRadius.circular(4),
+              //       ),
+              //     );
+              //   }).toList(),
+              // ),
 
-              const SizedBox(height: 28),
+              // const SizedBox(height: 28),
 
               // ── Banner principal ─────────────────────────────────────
               Container(

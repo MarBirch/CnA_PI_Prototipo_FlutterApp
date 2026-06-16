@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:prototipo1/app_theme.dart';
+import 'package:prototipo1/login.dart';
 
 class Cadastro extends StatefulWidget {
   const Cadastro({super.key});
@@ -258,6 +259,16 @@ class _CadastroState extends State<Cadastro> {
           return null;
         },
       ),
+      TextButton.icon(
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const Login()));
+                              setState(() {
+                                
+                              });
+                            },
+                            icon: const Icon(Icons.login_rounded, size: 18),
+                            label: const Text('Login'),
+                          ),
     ],
   );
 
@@ -751,6 +762,7 @@ class _CadastroState extends State<Cadastro> {
                                 minimumSize: const Size(double.infinity, 48),
                               ),
                             ),
+                          
                     ),
                   ],
                 ),
