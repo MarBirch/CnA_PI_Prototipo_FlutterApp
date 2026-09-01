@@ -59,6 +59,36 @@ class _NavigationState extends State<Navigation> {
     await prefs.remove('password');
   }
 
+  bool _showBanner = true;
+
+  Widget _notificationBanner() {
+    if (!_showBanner) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.corDestaque.withOpacity(0.15),
+        border: Border(bottom: BorderSide(color: AppTheme.corDestaque.withOpacity(0.3), width: 0.8)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_active_outlined, color: AppTheme.corDestaque, size: 18),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Seu pedido saudável agendado está sendo preparado com afeto! 🍱',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.corTexto),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _showBanner = false),
+            child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.corSubtexto),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,7 +120,12 @@ class _NavigationState extends State<Navigation> {
         ),
       ),
 
-      body: _screens[_selectedIndex],
+      body: Column(
+        children: [
+          _notificationBanner(),
+          Expanded(child: _screens[_selectedIndex]),
+        ],
+      ),
 
       // ── Barra de navegação inferior ─────────────────────────────────
       bottomNavigationBar: Container(
@@ -144,15 +179,13 @@ class _NavigationState extends State<Navigation> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(14),
+                  SizedBox(
+                    width: 54,
+                    height: 54,
+                    child: Image.asset(
+                      'assets/images/logo_icone.png',
+                      fit: BoxFit.contain,
                     ),
-                    child: const Icon(Icons.lunch_dining_rounded,
-                        color: Colors.white, size: 30),
                   ),
                   const SizedBox(height: 14),
                   const Text(

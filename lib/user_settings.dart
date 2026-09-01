@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prototipo1/app_theme.dart';
 import 'package:prototipo1/auth_provider.dart';
+import 'package:prototipo1/configuracoes.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -85,15 +86,30 @@ class _UserSettingsState extends State<UserSettings> {
                   _sectionLabel('Conta'),
                   const SizedBox(height: 8),
                   _settingsTile(
-                    icon: Icons.person_outline_rounded,
-                    label: 'Nome de usuário',
-                    value: _username,
-                    onTap: null,
+                    icon: Icons.edit_note_rounded,
+                    label: 'Editar perfil e saúde',
+                    value: 'Configurações',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const Configuracoes(),
+                        ),
+                      );
+                    },
                   ),
                   _settingsTile(
                     icon: Icons.lock_outline_rounded,
                     label: 'Alterar senha',
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const Configuracoes(initialIndex: 2),
+                        ),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 20),

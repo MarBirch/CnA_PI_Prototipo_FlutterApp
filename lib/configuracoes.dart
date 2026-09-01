@@ -37,7 +37,8 @@ class _UserProfile {
 // Widget principal
 // ─────────────────────────────────────────────────────────────────────────────
 class Configuracoes extends StatefulWidget {
-  const Configuracoes({super.key});
+  final int initialIndex;
+  const Configuracoes({super.key, this.initialIndex = 0});
 
   @override
   State<Configuracoes> createState() => _ConfiguracoesState();
@@ -52,7 +53,11 @@ class _ConfiguracoesState extends State<Configuracoes>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialIndex < 3 ? widget.initialIndex : 0,
+    );
     _loadProfile();
   }
 
@@ -62,13 +67,15 @@ class _ConfiguracoesState extends State<Configuracoes>
     super.dispose();
   }
 
-  // ── Carrega dados salvos em SharedPreferences ──────────────────────────
+  // ── Carrega dados salvos em SharedPreferences e busca do servidor ─────
 
   Future<void> _loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
+    final username = prefs.getString('username') ?? '';
+
     setState(() {
       _profile = _UserProfile(
-        username: prefs.getString('username') ?? '',
+        username: username,
         nome:     prefs.getString('nome')     ?? '',
         email:    prefs.getString('email')    ?? '',
         celular:  prefs.getString('celular')  ?? '',
@@ -79,6 +86,70 @@ class _ConfiguracoesState extends State<Configuracoes>
       );
       _isLoading = false;
     });
+
+    if (username.isNotEmpty) {
+      try {
+        final resp = await http.get(
+          Uri.parse('http://localhost:8080/apiUser/perfil?username=$username'),
+        ).timeout(const Duration(seconds: 5));
+
+        if (resp.statusCode == 200) {
+          final Map<String, dynamic> data = jsonDecode(resp.body);
+          final updated = _UserProfile(
+            username: username,
+            nome:     data['nome']     ?? '',
+            email:    data['email']    ?? '',
+            celular:  data['celular']  != null ? data['celular'].toString() : '',
+            endereco: data['endereco'] ?? '',
+            cep:      data['cep']      ?? '',
+            peso:     data['peso']     != null ? data['peso'].toString() : '',
+            altura:   data['altura']   != null ? data['altura'].toString() : '',
+          );
+
+          await prefs.setString('nome',     updated.nome);
+          await prefs.setString('email',    updated.email);
+          await prefs.setString('celular',  updated.celular);
+          await prefs.setString('endereco', updated.endereco);
+          await prefs.setString('cep',      updated.cep);
+          await prefs.setString('peso',     updated.peso);
+          await prefs.setString('altura',   updated.altura);
+
+          if (mounted) {
+            setState(() {
+              _profile = updated;
+            });
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  Future<bool> _saveProfileToServer(_UserProfile updated) async {
+    try {
+      final body = {
+        'username': updated.username,
+        'nome':     updated.nome,
+        'email':    updated.email,
+        'celular':  int.tryParse(updated.celular),
+        'endereco': updated.endereco,
+        'cep':      updated.cep,
+        'peso':     double.tryParse(updated.peso.replaceAll(',', '.')),
+        'altura':   double.tryParse(updated.altura.replaceAll(',', '.')),
+      };
+
+      final response = await http.put(
+        Uri.parse('http://localhost:8080/apiUser/atualizar'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200 && response.body.trim() == 'true') {
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   // ── Header com avatar + nome ───────────────────────────────────────────
@@ -107,46 +178,6 @@ class _ConfiguracoesState extends State<Configuracoes>
       ),
       child: Column(
         children: [
-          // Avatar
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                width: 86,
-                height: 86,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                      color: Colors.white.withOpacity(0.4), width: 2),
-                ),
-                child: Center(
-                  child: Text(
-                    initials.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: AppTheme.corDestaque,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: const Icon(Icons.edit_rounded,
-                    color: Colors.white, size: 13),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
           Text(
             _profile.nome.isNotEmpty ? _profile.nome : _profile.username,
             style: const TextStyle(
@@ -168,13 +199,13 @@ class _ConfiguracoesState extends State<Configuracoes>
           const SizedBox(height: 10),
 
           // Badges de info
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               if (_profile.email.isNotEmpty)
                 _headerBadge(Icons.email_outlined, _profile.email),
-              if (_profile.email.isNotEmpty && _profile.celular.isNotEmpty)
-                const SizedBox(width: 8),
               if (_profile.celular.isNotEmpty)
                 _headerBadge(Icons.phone_outlined, _profile.celular),
             ],
@@ -197,7 +228,7 @@ class _ConfiguracoesState extends State<Configuracoes>
             Icon(icon, color: Colors.white70, size: 12),
             const SizedBox(width: 5),
             Text(
-              text.length > 22 ? '${text.substring(0, 20)}…' : text,
+              text,
               style: const TextStyle(color: Colors.white, fontSize: 11),
             ),
           ],
@@ -242,6 +273,14 @@ class _ConfiguracoesState extends State<Configuracoes>
   Widget _tabPerfil() => _EditPerfil(
         profile: _profile,
         onSaved: (updated) async {
+          final serverOk = await _saveProfileToServer(updated);
+          if (!serverOk) {
+            if (mounted) {
+              _showError('Erro ao atualizar o perfil no servidor. Verifique a conexão.');
+            }
+            throw Exception('Falha ao atualizar perfil no servidor');
+          }
+
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('nome',     updated.nome);
           await prefs.setString('email',    updated.email);
@@ -250,7 +289,7 @@ class _ConfiguracoesState extends State<Configuracoes>
           await prefs.setString('cep',      updated.cep);
           setState(() => _profile = updated);
           if (mounted) {
-            _showSuccess('Perfil atualizado com sucesso!');
+            _showSuccess('Perfil atualizado com sucesso no banco de dados!');
           }
         },
       );
@@ -262,12 +301,20 @@ class _ConfiguracoesState extends State<Configuracoes>
   Widget _tabSaude() => _EditSaude(
         profile: _profile,
         onSaved: (updated) async {
+          final serverOk = await _saveProfileToServer(updated);
+          if (!serverOk) {
+            if (mounted) {
+              _showError('Erro ao atualizar dados de saúde no servidor. Verifique a conexão.');
+            }
+            throw Exception('Falha ao atualizar dados de saúde no servidor');
+          }
+
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('peso',   updated.peso);
           await prefs.setString('altura', updated.altura);
           setState(() => _profile = updated);
           if (mounted) {
-            _showSuccess('Dados de saúde atualizados!');
+            _showSuccess('Dados de saúde atualizados no banco de dados!');
           }
         },
       );
@@ -288,9 +335,22 @@ class _ConfiguracoesState extends State<Configuracoes>
       content: Row(children: [
         const Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
         const SizedBox(width: 8),
-        Text(msg),
+        Expanded(child: Text(msg)),
       ]),
       backgroundColor: AppTheme.corSucesso,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.error_outline, color: Colors.white, size: 16),
+        const SizedBox(width: 8),
+        Expanded(child: Text(msg)),
+      ]),
+      backgroundColor: AppTheme.corErro,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
@@ -393,8 +453,11 @@ class _EditPerfilState extends State<_EditPerfil> {
   late TextEditingController _endereco;
   late TextEditingController _cep;
 
-  bool _isSaving = false;
-  bool _dirty    = false;
+  bool _isEditing = false;
+  bool _isSaving  = false;
+  bool _dirty     = false;
+  bool _cepLoading = false;
+  String? _cepError;
 
   @override
   void initState() {
@@ -411,6 +474,19 @@ class _EditPerfilState extends State<_EditPerfil> {
   }
 
   @override
+  void didUpdateWidget(covariant _EditPerfil oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isEditing) {
+      final p = widget.profile;
+      _nome.text     = p.nome;
+      _email.text    = p.email;
+      _celular.text  = p.celular;
+      _endereco.text = p.endereco;
+      _cep.text      = p.cep;
+    }
+  }
+
+  @override
   void dispose() {
     for (final c in [_nome, _email, _celular, _endereco, _cep]) {
       c.dispose();
@@ -418,12 +494,64 @@ class _EditPerfilState extends State<_EditPerfil> {
     super.dispose();
   }
 
+  void _cancelarEdicao() {
+    final p = widget.profile;
+    _nome.text     = p.nome;
+    _email.text    = p.email;
+    _celular.text  = p.celular;
+    _endereco.text = p.endereco;
+    _cep.text      = p.cep;
+    setState(() {
+      _isEditing = false;
+      _dirty     = false;
+      _cepError  = null;
+    });
+  }
+
+  // ── Busca CEP via ViaCEP ───────────────────────────────────────────────
+
+  Future<void> _buscarCep() async {
+    final cep = _cep.text.trim();
+    if (cep.length != 8) return;
+    setState(() { _cepLoading = true; _cepError = null; });
+    try {
+      final res = await http.get(
+        Uri.parse('https://viacep.com.br/ws/$cep/json/'),
+      ).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data['erro'] == true || data['erro'] == 'true') {
+          setState(() => _cepError = 'CEP não encontrado.');
+        } else {
+          final logradouro = data['logradouro'] ?? '';
+          final bairro     = data['bairro']     ?? '';
+          final localidade = data['localidade']  ?? '';
+          final uf         = data['uf']          ?? '';
+          final partes = <String>[
+            if (logradouro.isNotEmpty) logradouro,
+            if (bairro.isNotEmpty)     bairro,
+            if (localidade.isNotEmpty) '$localidade/$uf',
+          ];
+          setState(() {
+            _endereco.text = partes.join(', ');
+            _cepError = null;
+            _dirty = true;
+          });
+        }
+      } else {
+        setState(() => _cepError = 'Erro ao consultar CEP.');
+      }
+    } catch (_) {
+      setState(() => _cepError = 'Sem conexão. Verifique a internet.');
+    } finally {
+      setState(() => _cepLoading = false);
+    }
+  }
+
   Future<void> _salvar() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isSaving = true);
 
-    // TODO: quando o backend tiver PUT /apiUser/atualizar, chamar aqui.
-    // Por ora, persiste só localmente via SharedPreferences.
     final updated = _UserProfile(
       username: widget.profile.username,
       nome:     _nome.text.trim(),
@@ -439,9 +567,16 @@ class _EditPerfilState extends State<_EditPerfil> {
 
     if (mounted) {
       setState(() {
-        _isSaving = false;
-        _dirty    = false;
+        _isSaving  = false;
+        _dirty     = false;
+        _isEditing = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informações salvas com sucesso!'),
+          backgroundColor: AppTheme.corSucesso,
+        ),
+      );
     }
   }
 
@@ -454,6 +589,56 @@ class _EditPerfilState extends State<_EditPerfil> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ── Banner informativo Modo Leitura / Edição ───────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: _isEditing
+                    ? AppTheme.corDestaque.withOpacity(0.1)
+                    : AppTheme.corPrimaria.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _isEditing
+                      ? AppTheme.corDestaque.withOpacity(0.3)
+                      : AppTheme.corPrimaria.withOpacity(0.25),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isEditing ? Icons.edit_note_rounded : Icons.lock_outline_rounded,
+                    color: _isEditing ? AppTheme.corDestaque : AppTheme.corPrimaria,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _isEditing
+                          ? 'Modo de edição ativo. Altere os campos desejados.'
+                          : 'Informações salvas. Habilite a edição para alterar.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.corTexto,
+                      ),
+                    ),
+                  ),
+                  if (!_isEditing)
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _isEditing = true),
+                      icon: const Icon(Icons.edit_rounded, size: 14),
+                      label: const Text('Editar'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
             // ── Campo readonly: username ──────────────────────────────
             _sectionLabel('Identidade'),
             const SizedBox(height: 8),
@@ -471,24 +656,32 @@ class _EditPerfilState extends State<_EditPerfil> {
             // Nome
             _formField(
               controller: _nome,
+              enabled: _isEditing,
               icon: Icons.badge_outlined,
               label: 'Nome completo',
               hint: 'Seu nome completo',
               maxLength: 80,
+              validator: (v) {
+                if (v != null && v.isNotEmpty && v.trim().length < 3) {
+                  return 'Nome deve conter pelo menos 3 caracteres';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 12),
 
             // E-mail
             _formField(
               controller: _email,
+              enabled: _isEditing,
               icon: Icons.email_outlined,
               label: 'E-mail',
               hint: 'seu@email.com',
               keyboardType: TextInputType.emailAddress,
               validator: (v) {
-                if (v == null || v.isEmpty) return null;
+                if (v == null || v.trim().isEmpty) return null;
                 final regex = RegExp(r'^[\w\-.]+@[\w\-]+\.[a-z]{2,}$');
-                return regex.hasMatch(v) ? null : 'E-mail inválido';
+                return regex.hasMatch(v.trim()) ? null : 'Insira um e-mail válido (ex: nome@dominio.com)';
               },
             ),
             const SizedBox(height: 12),
@@ -496,12 +689,19 @@ class _EditPerfilState extends State<_EditPerfil> {
             // Celular
             _formField(
               controller: _celular,
+              enabled: _isEditing,
               icon: Icons.phone_outlined,
               label: 'Celular',
               hint: '11999999999',
               keyboardType: TextInputType.phone,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               maxLength: 11,
+              validator: (v) {
+                if (v != null && v.isNotEmpty && v.trim().length < 10) {
+                  return 'Celular deve conter 10 ou 11 dígitos';
+                }
+                return null;
+              },
             ),
 
             const SizedBox(height: 20),
@@ -509,20 +709,55 @@ class _EditPerfilState extends State<_EditPerfil> {
             const SizedBox(height: 8),
 
             // CEP
-            _formField(
+            TextFormField(
               controller: _cep,
-              icon: Icons.pin_drop_outlined,
-              label: 'CEP',
-              hint: '00000000',
+              enabled: _isEditing,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               maxLength: 8,
+              onChanged: (v) {
+                setState(() => _dirty = true);
+                if (v.length == 8) _buscarCep();
+              },
+              decoration: InputDecoration(
+                labelText: 'CEP',
+                hintText: '00000000',
+                prefixIcon: const Icon(Icons.pin_drop_outlined,
+                    color: AppTheme.corSubtexto, size: 20),
+                counterText: '',
+                errorText: _cepError,
+                suffixIcon: _cepLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppTheme.corPrimaria),
+                        ),
+                      )
+                    : (_isEditing && _cep.text.length == 8)
+                        ? IconButton(
+                            tooltip: 'Buscar CEP',
+                            icon: const Icon(Icons.search_rounded,
+                                color: AppTheme.corPrimaria),
+                            onPressed: _buscarCep,
+                          )
+                        : null,
+              ),
+              validator: (v) {
+                if (v != null && v.isNotEmpty && v.trim().length != 8) {
+                  return 'CEP deve ter exatamente 8 dígitos';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 12),
 
             // Endereço
             _formField(
               controller: _endereco,
+              enabled: _isEditing,
               icon: Icons.home_outlined,
               label: 'Endereço',
               hint: 'Rua, número, bairro',
@@ -531,35 +766,52 @@ class _EditPerfilState extends State<_EditPerfil> {
 
             const SizedBox(height: 28),
 
-            // Botão salvar
+            // ── Botões de ação ───────────────────────────────────────
             _isSaving
                 ? const Center(
                     child: CircularProgressIndicator(
                         color: AppTheme.corPrimaria))
-                : ElevatedButton.icon(
-                    onPressed: _dirty ? _salvar : null,
-                    icon: const Icon(Icons.save_rounded, size: 18),
-                    label: const Text('Salvar alterações'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                      disabledBackgroundColor:
-                          AppTheme.corPrimaria.withOpacity(0.35),
-                      disabledForegroundColor: Colors.white60,
-                    ),
-                  ),
-
-            if (!_dirty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Center(
-                  child: Text(
-                    'Nenhuma alteração pendente',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.corSubtexto.withOpacity(0.7)),
-                  ),
-                ),
-              ),
+                : !_isEditing
+                    ? ElevatedButton.icon(
+                        onPressed: () => setState(() => _isEditing = true),
+                        icon: const Icon(Icons.edit_rounded, size: 18),
+                        label: const Text('Habilitar edição'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                        ),
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _cancelarEdicao,
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              label: const Text('Cancelar'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 48),
+                                foregroundColor: AppTheme.corSubtexto,
+                                side: BorderSide(
+                                    color: AppTheme.corBorda.withOpacity(0.5)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              onPressed: _dirty ? _salvar : null,
+                              icon: const Icon(Icons.save_rounded, size: 18),
+                              label: const Text('Salvar alterações'),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(0, 48),
+                                disabledBackgroundColor:
+                                    AppTheme.corPrimaria.withOpacity(0.35),
+                                disabledForegroundColor: Colors.white60,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
           ],
         ),
       ),
@@ -585,8 +837,9 @@ class _EditSaudeState extends State<_EditSaude> {
   late TextEditingController _peso;
   late TextEditingController _altura;
 
-  bool _isSaving = false;
-  bool _dirty    = false;
+  bool _isEditing = false;
+  bool _isSaving  = false;
+  bool _dirty     = false;
 
   @override
   void initState() {
@@ -599,10 +852,28 @@ class _EditSaudeState extends State<_EditSaude> {
   }
 
   @override
+  void didUpdateWidget(covariant _EditSaude oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isEditing) {
+      _peso.text   = widget.profile.peso;
+      _altura.text = widget.profile.altura;
+    }
+  }
+
+  @override
   void dispose() {
     _peso.dispose();
     _altura.dispose();
     super.dispose();
+  }
+
+  void _cancelarEdicao() {
+    _peso.text   = widget.profile.peso;
+    _altura.text = widget.profile.altura;
+    setState(() {
+      _isEditing = false;
+      _dirty     = false;
+    });
   }
 
   double? get _imc {
@@ -647,9 +918,16 @@ class _EditSaudeState extends State<_EditSaude> {
 
     if (mounted) {
       setState(() {
-        _isSaving = false;
-        _dirty    = false;
+        _isSaving  = false;
+        _dirty     = false;
+        _isEditing = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dados de saúde salvos com sucesso!'),
+          backgroundColor: AppTheme.corSucesso,
+        ),
+      );
     }
   }
 
@@ -669,25 +947,45 @@ class _EditSaudeState extends State<_EditSaude> {
               padding: const EdgeInsets.all(14),
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: AppTheme.corPrimaria.withOpacity(0.08),
+                color: _isEditing
+                    ? AppTheme.corDestaque.withOpacity(0.1)
+                    : AppTheme.corPrimaria.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: AppTheme.corPrimaria.withOpacity(0.25), width: 0.8),
+                    color: _isEditing
+                        ? AppTheme.corDestaque.withOpacity(0.3)
+                        : AppTheme.corPrimaria.withOpacity(0.25),
+                    width: 0.8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppTheme.corPrimaria, size: 18),
+                  Icon(
+                    _isEditing ? Icons.edit_note_rounded : Icons.info_outline_rounded,
+                    color: _isEditing ? AppTheme.corDestaque : AppTheme.corPrimaria,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Seus dados de saúde são usados pela assistente nutricional para personalizar suas recomendações.',
-                      style: TextStyle(
+                      _isEditing
+                          ? 'Modo de edição ativo. Altere peso e altura.'
+                          : 'Seus dados de saúde são usados pela assistente nutricional para personalizar suas recomendações.',
+                      style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.corSubtexto,
                           height: 1.4),
                     ),
                   ),
+                  if (!_isEditing)
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _isEditing = true),
+                      icon: const Icon(Icons.edit_rounded, size: 14),
+                      label: const Text('Editar'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -702,6 +1000,7 @@ class _EditSaudeState extends State<_EditSaude> {
                 Expanded(
                   child: _formField(
                     controller: _peso,
+                    enabled: _isEditing,
                     icon: Icons.monitor_weight_outlined,
                     label: 'Peso (kg)',
                     hint: 'Ex: 70,5',
@@ -721,6 +1020,7 @@ class _EditSaudeState extends State<_EditSaude> {
                 Expanded(
                   child: _formField(
                     controller: _altura,
+                    enabled: _isEditing,
                     icon: Icons.height_rounded,
                     label: 'Altura (m)',
                     hint: 'Ex: 1,70',
@@ -760,11 +1060,13 @@ class _EditSaudeState extends State<_EditSaude> {
                           Icon(Icons.calculate_outlined,
                               color: AppTheme.corSubtexto, size: 20),
                           SizedBox(width: 10),
-                          Text(
-                            'Preencha peso e altura para calcular o IMC',
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.corSubtexto),
+                          Expanded(
+                            child: Text(
+                              'Preencha peso e altura para calcular o IMC',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.corSubtexto),
+                            ),
                           ),
                         ],
                       ),
@@ -773,21 +1075,52 @@ class _EditSaudeState extends State<_EditSaude> {
 
             const SizedBox(height: 28),
 
+            // ── Botões de ação ───────────────────────────────────────
             _isSaving
                 ? const Center(
                     child: CircularProgressIndicator(
                         color: AppTheme.corPrimaria))
-                : ElevatedButton.icon(
-                    onPressed: _dirty ? _salvar : null,
-                    icon: const Icon(Icons.save_rounded, size: 18),
-                    label: const Text('Salvar dados de saúde'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                      disabledBackgroundColor:
-                          AppTheme.corPrimaria.withOpacity(0.35),
-                      disabledForegroundColor: Colors.white60,
-                    ),
-                  ),
+                : !_isEditing
+                    ? ElevatedButton.icon(
+                        onPressed: () => setState(() => _isEditing = true),
+                        icon: const Icon(Icons.edit_rounded, size: 18),
+                        label: const Text('Habilitar edição'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                        ),
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _cancelarEdicao,
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              label: const Text('Cancelar'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 48),
+                                foregroundColor: AppTheme.corSubtexto,
+                                side: BorderSide(
+                                    color: AppTheme.corBorda.withOpacity(0.5)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              onPressed: _dirty ? _salvar : null,
+                              icon: const Icon(Icons.save_rounded, size: 18),
+                              label: const Text('Salvar dados de saúde'),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(0, 48),
+                                disabledBackgroundColor:
+                                    AppTheme.corPrimaria.withOpacity(0.35),
+                                disabledForegroundColor: Colors.white60,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
           ],
         ),
       ),
@@ -898,8 +1231,69 @@ class _EditSaudeState extends State<_EditSaude> {
               Text('40', style: TextStyle(fontSize: 10, color: AppTheme.corSubtexto)),
             ],
           ),
+          const SizedBox(height: 16),
+          _dashboardNutricional(),
         ],
       ),
+    );
+  }
+
+  Widget _dashboardNutricional() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.corCard.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.corBorda.withOpacity(0.25), width: 0.8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.pie_chart_outline_rounded, color: AppTheme.corPrimaria, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Metas Nutricionais Estimadas',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.corTexto),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _macroBar('Calorias', '1.850 / 2.000 kcal', 0.82, AppTheme.corPrimaria),
+          const SizedBox(height: 8),
+          _macroBar('Proteínas', '110g / 130g', 0.85, AppTheme.corDestaque),
+          const SizedBox(height: 8),
+          _macroBar('Carboidratos', '190g / 220g', 0.75, AppTheme.corSecundaria),
+          const SizedBox(height: 8),
+          _macroBar('Gorduras', '52g / 65g', 0.68, Colors.brown),
+        ],
+      ),
+    );
+  }
+
+  Widget _macroBar(String label, String value, double pct, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.corTexto)),
+            Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: pct,
+            minHeight: 6,
+            backgroundColor: AppTheme.corBorda.withOpacity(0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1000,15 +1394,13 @@ class _ContaTabState extends State<_ContaTab> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppTheme.corPrimaria,
-                        borderRadius: BorderRadius.circular(12),
+                    SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Image.asset(
+                        'assets/images/logo_icone.png',
+                        fit: BoxFit.contain,
                       ),
-                      child: const Icon(Icons.lunch_dining_rounded,
-                          color: Colors.white, size: 24),
                     ),
                     const SizedBox(width: 14),
                     const Expanded(
@@ -1158,13 +1550,27 @@ class _AlterarSenhaSheetState extends State<_AlterarSenhaSheet> {
       _errorMsg = null;
     });
 
+    final prefs = await SharedPreferences.getInstance();
+    String username = widget.username.trim();
+    if (username.isEmpty) {
+      username = prefs.getString('username') ?? '';
+    }
+
+    if (username.isEmpty) {
+      setState(() {
+        _errorMsg = 'Nome de usuário não identificado.';
+        _isSaving = false;
+      });
+      return;
+    }
+
     // 1. Verifica senha atual via /apiUser/login
     try {
       final loginResp = await http.post(
         Uri.parse('http://localhost:8080/apiUser/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'username': widget.username,
+          'username': username,
           'senha': _atualCtrl.text,
         }),
       );
@@ -1178,10 +1584,29 @@ class _AlterarSenhaSheetState extends State<_AlterarSenhaSheet> {
         return;
       }
 
-      // 2. TODO: chamar PUT /apiUser/atualizar quando disponível no backend.
-      // Por ora, salva apenas localmente.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('password', _novaCtrl.text);
+      // 2. Atualiza a senha no servidor via PUT /apiUser/alterar-senha
+      final updateResp = await http.put(
+        Uri.parse('http://localhost:8080/apiUser/alterar-senha'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': username,
+          'novaSenha': _novaCtrl.text,
+        }),
+      );
+
+      if (updateResp.statusCode != 200 ||
+          updateResp.body.trim() == 'false') {
+        setState(() {
+          _errorMsg = 'Erro ao atualizar a senha no servidor.';
+          _isSaving = false;
+        });
+        return;
+      }
+
+      // 3. Atualiza localmente em SharedPreferences se salva anteriormente
+      if (prefs.containsKey('password')) {
+        await prefs.setString('password', _novaCtrl.text);
+      }
 
       if (mounted) {
         setState(() {
@@ -1432,9 +1857,11 @@ Widget _formField({
   List<TextInputFormatter>? inputFormatters,
   int? maxLength,
   String? Function(String?)? validator,
+  bool enabled = true,
 }) =>
     TextFormField(
       controller: controller,
+      enabled: enabled,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       maxLength: maxLength,

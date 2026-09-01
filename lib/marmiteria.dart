@@ -172,8 +172,11 @@ class _MarmiteriaState extends State<Marmiteria> {
             ),
           ),
           const SizedBox(height: 6),
-          // Status badge
-          Row(
+          // Status, Avaliação e Telefone
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -215,15 +218,48 @@ class _MarmiteriaState extends State<Marmiteria> {
                   ],
                 ),
               ),
-              if (widget.marmiteria.telefone != null) ...[
-                const SizedBox(width: 10),
-                const Icon(Icons.phone_outlined, color: Colors.white70, size: 13),
-                const SizedBox(width: 4),
-                Text(
-                  widget.marmiteria.telefone!,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.amber, width: 0.8),
                 ),
-              ],
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                    SizedBox(width: 4),
+                    Text(
+                      '4.9 (48 avaliações)',
+                      style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.marmiteria.telefone != null && widget.marmiteria.telefone!.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white30, width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.phone_outlined, color: Colors.white, size: 12),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.marmiteria.telefone!,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ],

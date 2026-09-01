@@ -428,8 +428,14 @@ class _HomeState extends State<Home> {
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.lunch_dining_rounded,
-                        color: Colors.white70, size: 40),
+                    SizedBox(
+                      width: 72,
+                      height: 72,
+                      child: Image.asset(
+                        'assets/images/logo_icone.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       'Se alimente bem de maneira\nrápida e prática.',

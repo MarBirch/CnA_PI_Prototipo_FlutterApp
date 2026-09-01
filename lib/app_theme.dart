@@ -12,6 +12,7 @@ class AppTheme {
   static const Color corTexto      = Color(0xFF2C2C2C);
   static const Color corSubtexto   = Color(0xFF4A4A4A);
   static const Color corDestaque   = Color(0xFFCC7722);
+  static const Color corAlerta     = Color(0xFFE65100);
   static const Color corErro       = Color(0xFFC62828);
   static const Color corSucesso    = Color(0xFF388E3C);
 
@@ -19,11 +20,17 @@ class AppTheme {
   static ThemeData get theme => ThemeData(
     useMaterial3: true,
     scaffoldBackgroundColor: corFundo,
+    primaryColor: corPrimaria,
     colorScheme: ColorScheme.fromSeed(
       seedColor: corPrimaria,
       primary: corPrimaria,
+      onPrimary: Colors.white,
       secondary: corSecundaria,
+      onSecondary: Colors.white,
       surface: corCard,
+      onSurface: corTexto,
+      error: corErro,
+      onError: Colors.white,
     ),
     appBarTheme: AppBarTheme(
       backgroundColor: corFundo,
@@ -40,7 +47,7 @@ class AppTheme {
     textTheme: GoogleFonts.robotoTextTheme().copyWith(
       bodyLarge:  const TextStyle(color: corTexto),
       bodyMedium: const TextStyle(color: corTexto),
-      titleLarge: TextStyle(color: corTexto, fontWeight: FontWeight.bold),
+      titleLarge: const TextStyle(color: corTexto, fontWeight: FontWeight.bold),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -79,8 +86,61 @@ class AppTheme {
         textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
       ),
     ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: corPrimaria,
+        side: const BorderSide(color: corPrimaria, width: 1.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+      ),
+    ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: corSubtexto),
+      style: TextButton.styleFrom(
+        foregroundColor: corPrimaria,
+        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+      ),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return corPrimaria;
+        }
+        return Colors.transparent;
+      }),
+      checkColor: WidgetStateProperty.all(Colors.white),
+      side: const BorderSide(color: corPrimaria, width: 1.5),
+    ),
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return corPrimaria;
+        }
+        return corSubtexto;
+      }),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return corPrimaria;
+        }
+        return corSubtexto;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return corPrimaria.withOpacity(0.4);
+        }
+        return corBorda.withOpacity(0.2);
+      }),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: corCard,
+      selectedColor: corPrimaria,
+      secondarySelectedColor: corDestaque,
+      labelStyle: const TextStyle(color: corTexto, fontSize: 12),
+      secondaryLabelStyle: const TextStyle(color: Colors.white, fontSize: 12),
+      side: BorderSide(color: corBorda.withOpacity(0.3)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     drawerTheme: const DrawerThemeData(backgroundColor: corSidebar),
     dividerTheme: const DividerThemeData(color: corBorda, thickness: 0.5),

@@ -133,9 +133,45 @@ class _ChatState extends State<Chat> {
                 style: const TextStyle(
                     color: Colors.white, fontSize: 15, height: 1.4),
               )
-            : MarkdownBlock(
-                data: msg.message as String,
-                selectable: true,
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MarkdownBlock(
+                    data: msg.message as String,
+                    selectable: true,
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Abrindo cardápio recomendado pela Nutri...'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.corPrimaria.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.corPrimaria.withOpacity(0.3), width: 0.8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.restaurant_menu_rounded, color: AppTheme.corPrimaria, size: 14),
+                          SizedBox(width: 6),
+                          Text(
+                            'Ver opções recomendadas no Cardápio',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.corPrimaria),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
       ),
     );

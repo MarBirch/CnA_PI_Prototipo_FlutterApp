@@ -28,6 +28,35 @@ class _LoginState extends State<Login> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  bool _rememberMe = true;
+
+  void _esqueciSenha() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.corCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.help_outline_rounded, color: AppTheme.corPrimaria),
+            SizedBox(width: 10),
+            Text('Recuperar Senha', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.corTexto)),
+          ],
+        ),
+        content: const Text(
+          'Para redefinir sua senha, entre em contato com o suporte do Comida & Afeto ou utilize o e-mail cadastrado na sua conta.',
+          style: TextStyle(color: AppTheme.corSubtexto, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendi'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -54,7 +83,11 @@ class _LoginState extends State<Login> {
           ).login('token_$username');
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('username', username);
-          await prefs.setString('password', password);
+          if (_rememberMe) {
+            await prefs.setString('password', password);
+          } else {
+            await prefs.remove('password');
+          }
 
           // Busca e salva o userId
           try {
@@ -69,6 +102,11 @@ class _LoginState extends State<Login> {
               }
             }
           } catch (_) {}
+
+          // Retorna para a rota raiz (home) se a tela de login foi aberta via push
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
         }
         return null;
       }
@@ -111,29 +149,13 @@ class _LoginState extends State<Login> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // ── Logo / Título ────────────────────────────────────────
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: AppTheme.corPrimaria,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.lunch_dining_rounded,
-                    color: Colors.white,
-                    size: 40,
-                  ),
+                Image.asset(
+                  'assets/images/logo_completa.png',
+                  width: 160,
+                  height: 160,
+                  fit: BoxFit.contain,
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Comida & Afeto',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.corPrimaria,
-                  ),
-                ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 12),
                 const Text(
                   'Faça login para continuar',
                   style: TextStyle(fontSize: 14, color: AppTheme.corSubtexto),
@@ -165,7 +187,7 @@ class _LoginState extends State<Login> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const Text(
-                          'Entrar',
+                          'Entrar na sua conta',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -178,8 +200,9 @@ class _LoginState extends State<Login> {
                         TextFormField(
                           controller: _usernameController,
                           maxLength: 45,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: const InputDecoration(
-                            labelText: 'Nome de usuário',
+                            labelText: 'Nome de usuário *',
                             hintText: 'Digite seu nome de usuário',
                             prefixIcon: Icon(
                               Icons.person_outline,
@@ -188,9 +211,15 @@ class _LoginState extends State<Login> {
                             ),
                             counterText: '',
                           ),
-                          validator: (v) => (v == null || v.isEmpty)
-                              ? 'Preencha o nome de usuário'
-                              : null,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Preencha o nome de usuário';
+                            }
+                            if (v.trim().length < 3) {
+                              return 'O usuário deve ter ao menos 3 caracteres';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 14),
 
@@ -199,8 +228,9 @@ class _LoginState extends State<Login> {
                           controller: _passwordController,
                           maxLength: 45,
                           obscureText: _obscurePassword,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: InputDecoration(
-                            labelText: 'Senha',
+                            labelText: 'Senha *',
                             hintText: 'Digite sua senha',
                             prefixIcon: const Icon(
                               Icons.lock_outline,
@@ -221,9 +251,71 @@ class _LoginState extends State<Login> {
                             ),
                             counterText: '',
                           ),
-                          validator: (v) => (v == null || v.isEmpty)
-                              ? 'Preencha sua senha'
-                              : null,
+                          validator: (v) {
+                            if (v == null || v.isEmpty) {
+                              return 'Preencha sua senha';
+                            }
+                            if (v.length < 4) {
+                              return 'A senha deve ter ao menos 4 caracteres';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // Lembrar de mim & Esqueceu a senha
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            InkWell(
+                              onTap: () => setState(() => _rememberMe = !_rememberMe),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: Checkbox(
+                                      value: _rememberMe,
+                                      activeColor: AppTheme.corPrimaria,
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      onChanged: (val) =>
+                                          setState(() => _rememberMe = val ?? true),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'Lembrar-me',
+                                    style: TextStyle(
+                                        fontSize: 12, color: AppTheme.corSubtexto),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Flexible(
+                              child: TextButton(
+                                onPressed: _esqueciSenha,
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 2),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  'Esqueceu a senha?',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.corPrimaria,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
 
                         // Mensagem de erro
@@ -277,9 +369,30 @@ class _LoginState extends State<Login> {
                             onPressed: _onEntrar,
                             icon: const Icon(Icons.login_rounded, size: 18),
                             label: const Text('Entrar'),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 48),
+                            ),
                           ),
 
-                        TextButton.icon(
+                        const SizedBox(height: 12),
+
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: AppTheme.corBorda.withOpacity(0.3))),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 10),
+                              child: Text(
+                                'ou',
+                                style: TextStyle(fontSize: 12, color: AppTheme.corSubtexto),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: AppTheme.corBorda.withOpacity(0.3))),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        OutlinedButton.icon(
                           onPressed: () {
                             Navigator.push(
                               context,
@@ -287,10 +400,15 @@ class _LoginState extends State<Login> {
                                 builder: (context) => const Cadastro(),
                               ),
                             );
-                            setState(() {});
                           },
-                          icon: const Icon(Icons.login_rounded, size: 18),
-                          label: const Text('Cadastro'),
+                          icon: const Icon(Icons.person_add_outlined, size: 18),
+                          label: const Text('Criar nova conta'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 46),
+                            foregroundColor: AppTheme.corPrimaria,
+                            side: BorderSide(color: AppTheme.corPrimaria.withOpacity(0.6)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
                         ),
                       ],
                     ),

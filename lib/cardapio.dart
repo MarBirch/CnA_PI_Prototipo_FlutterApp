@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:prototipo1/app_theme.dart';
 import 'package:prototipo1/carrinho.dart';
+import 'package:prototipo1/carrinho_provider.dart';
 import 'package:prototipo1/marmiteria.dart';
 
 // ── Modelo de item no carrinho ─────────────────────────────────────────────
@@ -41,6 +43,57 @@ class _CardapioState extends State<Cardapio> {
   static const double _passo = 50.0; // incremento dos botões +/-
   static const double _minGramas = 50.0;
   static const double _maxGramas = 500.0;
+
+  String _filtroNutricional = 'Todos';
+  final List<String> _filtros = ['Todos', 'Hipertrofia', 'Emagrecimento', 'Low Carb', 'Vegano'];
+
+  List<IngredienteModel> get _ingredientesFiltrados {
+    final todos = widget.cardapio.ingredientes;
+    if (_filtroNutricional == 'Todos') return todos;
+    final f = _filtroNutricional.toLowerCase();
+    if (f == 'hipertrofia') {
+      final res = todos.where((i) => i.nome.toLowerCase().contains('frango') || i.nome.toLowerCase().contains('carne') || i.nome.toLowerCase().contains('ovo') || i.nome.toLowerCase().contains('proteí')).toList();
+      return res.isNotEmpty ? res : todos;
+    }
+    if (f == 'emagrecimento' || f == 'low carb') {
+      final res = todos.where((i) => i.nome.toLowerCase().contains('salada') || i.nome.toLowerCase().contains('legume') || i.nome.toLowerCase().contains('brocolis') || i.nome.toLowerCase().contains('peixe') || i.nome.toLowerCase().contains('ovo')).toList();
+      return res.isNotEmpty ? res : todos;
+    }
+    if (f == 'vegano') {
+      final res = todos.where((i) => !i.nome.toLowerCase().contains('frango') && !i.nome.toLowerCase().contains('carne') && !i.nome.toLowerCase().contains('peixe')).toList();
+      return res.isNotEmpty ? res : todos;
+    }
+    return todos;
+  }
+
+  Widget _buildFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: _filtros.map((filtro) {
+          final isSelected = _filtroNutricional == filtro;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              selected: isSelected,
+              label: Text(filtro),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : AppTheme.corTexto,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              selectedColor: AppTheme.corPrimaria,
+              backgroundColor: AppTheme.corCard,
+              onSelected: (val) {
+                if (val) setState(() => _filtroNutricional = filtro);
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -100,24 +153,88 @@ class _CardapioState extends State<Cardapio> {
     }
   }
 
-  void _irParaCarrinho() {
+  void _resetarSelecoes() {
+    setState(() {
+      for (final ing in widget.cardapio.ingredientes) {
+        _gramas[ing.id] = 0.0;
+        if (_controllers.containsKey(ing.id)) {
+          _controllers[ing.id]!.text = '0';
+        }
+      }
+    });
+  }
+
+  void _adicionarAoCarrinho() {
     if (_itensSelecionados.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Selecione pelo menos um ingrediente.'),
+          content: Text('Selecione pelo menos um ingrediente para montar a marmita.'),
           backgroundColor: AppTheme.corErro,
         ),
       );
       return;
     }
+
+    final carrinho = context.read<CarrinhoProvider>();
+    carrinho.adicionarMarmita(
+      cardapio: widget.cardapio,
+      marmiteria: widget.marmiteria,
+      ingredientes: _itensSelecionados,
+    );
+
+    _resetarSelecoes();
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 4),
+        backgroundColor: AppTheme.corCard,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppTheme.corSucesso, width: 1),
+        ),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: AppTheme.corSucesso, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Marmita adicionada! (${carrinho.totalMarmitasCount} no carrinho)',
+                style: const TextStyle(
+                  color: AppTheme.corTexto,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'Ver Carrinho',
+          textColor: AppTheme.corDestaque,
+          onPressed: _abrirCarrinho,
+        ),
+      ),
+    );
+  }
+
+  void _abrirCarrinho() {
+    final carrinho = context.read<CarrinhoProvider>();
+    if (carrinho.isEmpty && _itensSelecionados.isNotEmpty) {
+      // Se não adicionou ainda mas selecionou ingredientes, adiciona automaticamente
+      carrinho.adicionarMarmita(
+        cardapio: widget.cardapio,
+        marmiteria: widget.marmiteria,
+        ingredientes: _itensSelecionados,
+      );
+      _resetarSelecoes();
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => Carrinho(
-          itens: _itensSelecionados,
-          cardapio: widget.cardapio,
-          marmiteria: widget.marmiteria,
-        ),
+        builder: (_) => const Carrinho(),
       ),
     );
   }
@@ -358,6 +475,9 @@ class _CardapioState extends State<Cardapio> {
   }
 
   Widget _rodape() {
+    final carrinho = context.watch<CarrinhoProvider>();
+    final temMarmitasNoCarrinho = carrinho.totalMarmitasCount > 0;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
       decoration: BoxDecoration(
@@ -377,41 +497,62 @@ class _CardapioState extends State<Cardapio> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Resumo
           Row(
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$_qtdSelecionados ingrediente${_qtdSelecionados != 1 ? 's' : ''} • '
-                    '${_totalGramas.toStringAsFixed(0)}g total',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTheme.corSubtexto),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Total: R\$ ${_totalValor.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.corTexto,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$_qtdSelecionados ingrediente${_qtdSelecionados != 1 ? 's' : ''} • '
+                      '${_totalGramas.toStringAsFixed(0)}g',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.corSubtexto),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      'Marmita: R\$ ${_totalValor.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.corTexto,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
-                onPressed: _irParaCarrinho,
-                icon: const Icon(Icons.shopping_cart_rounded, size: 18),
-                label: const Text('Comprar'),
+                onPressed: _adicionarAoCarrinho,
+                icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
+                label: const Text('Adicionar'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
+                      horizontal: 14, vertical: 10),
                 ),
               ),
             ],
           ),
+          if (temMarmitasNoCarrinho) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _abrirCarrinho,
+              icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+              label: Text(
+                'Ver Carrinho (${carrinho.totalMarmitasCount}) • R\$ ${carrinho.totalGeral.toStringAsFixed(2)}',
+                textAlign: TextAlign.center,
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                foregroundColor: AppTheme.corDestaque,
+                side: const BorderSide(color: AppTheme.corDestaque, width: 1.2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -419,6 +560,9 @@ class _CardapioState extends State<Cardapio> {
 
   @override
   Widget build(BuildContext context) {
+    final list = _ingredientesFiltrados;
+    final carrinho = context.watch<CarrinhoProvider>();
+
     return Scaffold(
       backgroundColor: AppTheme.corFundo,
       appBar: AppBar(
@@ -439,14 +583,63 @@ class _CardapioState extends State<Cardapio> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
-              widget.marmiteria.nome,
-              style: const TextStyle(
-                  fontSize: 11, color: AppTheme.corSubtexto),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.marmiteria.nome,
+                  style: const TextStyle(fontSize: 11, color: AppTheme.corSubtexto),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.star_rounded, color: Colors.amber, size: 13),
+                const Text(
+                  ' 4.9',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.corTexto),
+                ),
+              ],
             ),
           ],
         ),
         centerTitle: true,
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.shopping_cart_outlined,
+                    color: AppTheme.corPrimaria, size: 24),
+                onPressed: _abrirCarrinho,
+                tooltip: 'Ver carrinho',
+              ),
+              if (carrinho.totalMarmitasCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.corDestaque,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      '${carrinho.totalMarmitasCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 4),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Divider(
@@ -455,9 +648,10 @@ class _CardapioState extends State<Cardapio> {
       ),
       body: Column(
         children: [
+          _buildFilterChips(),
           // Cabeçalho informativo
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -486,7 +680,7 @@ class _CardapioState extends State<Cardapio> {
           ),
           // Lista de ingredientes
           Expanded(
-            child: widget.cardapio.ingredientes.isEmpty
+            child: _ingredientesFiltrados.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -496,7 +690,7 @@ class _CardapioState extends State<Cardapio> {
                             color: AppTheme.corPrimaria.withOpacity(0.3)),
                         const SizedBox(height: 12),
                         const Text(
-                          'Nenhum ingrediente neste cardápio.',
+                          'Nenhum ingrediente nesta categoria.',
                           style: TextStyle(
                               color: AppTheme.corSubtexto, fontSize: 14),
                         ),
@@ -505,9 +699,9 @@ class _CardapioState extends State<Cardapio> {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.only(top: 4, bottom: 12),
-                    itemCount: widget.cardapio.ingredientes.length,
+                    itemCount: _ingredientesFiltrados.length,
                     itemBuilder: (_, i) => _ingredienteCard(
-                      widget.cardapio.ingredientes[i],
+                      _ingredientesFiltrados[i],
                       i,
                     ),
                   ),

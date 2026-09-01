@@ -154,6 +154,97 @@ class _PedidoState extends State<Pedido> {
     }
   }
 
+  void _abrirAvaliacao(PedidoModel pedido) {
+    int rating = 5;
+    final tags = ['Saborosa', 'Nutritiva', 'Entregue Quente', 'Porção Generosa'];
+    final selectedTags = <String>{'Saborosa', 'Nutritiva'};
+    final commentCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.corCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.star_rounded, color: Colors.amber, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Avaliar Pedido #${pedido.id}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.corTexto),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Como foi sua experiência com esta refeição?', style: TextStyle(fontSize: 13, color: AppTheme.corSubtexto)),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  final starIndex = index + 1;
+                  return IconButton(
+                    icon: Icon(
+                      starIndex <= rating ? Icons.star_rounded : Icons.star_border_rounded,
+                      color: Colors.amber,
+                      size: 30,
+                    ),
+                    onPressed: () => setDialogState(() => rating = starIndex),
+                  );
+                }),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                children: tags.map((t) {
+                  final isSel = selectedTags.contains(t);
+                  return FilterChip(
+                    selected: isSel,
+                    label: Text(t, style: TextStyle(fontSize: 10, color: isSel ? Colors.white : AppTheme.corTexto)),
+                    selectedColor: AppTheme.corPrimaria,
+                    backgroundColor: AppTheme.corFundo,
+                    onSelected: (val) => setDialogState(() {
+                      if (val) selectedTags.add(t); else selectedTags.remove(t);
+                    }),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: commentCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  hintText: 'Deixe um comentário (opcional)...',
+                  hintStyle: TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar', style: TextStyle(color: AppTheme.corSubtexto)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Avaliação enviada com sucesso! Obrigado pelo feedback.'),
+                    backgroundColor: AppTheme.corSucesso,
+                  ),
+                );
+              },
+              child: const Text('Enviar Avaliação'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Helpers de status ────────────────────────────────────────────────────
 
   Color _statusColor(String s) {

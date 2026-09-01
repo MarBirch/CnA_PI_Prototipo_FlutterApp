@@ -41,9 +41,15 @@ class _ChatlistState extends State<Chatlist> {
         body: jsonEncode({'username': username, 'password': 'empty'}),
       );
       if (response.statusCode == 200) {
+        // DEBUG: mostra o JSON bruto para diagnóstico
+        debugPrint('[Chatlist] JSON bruto da API: ${response.body}');
         final Iterable data = jsonDecode(response.body);
+        final chats = data.map((m) {
+          debugPrint('[Chatlist] item: $m');
+          return ChatModel.fromJson(m as Map<String, dynamic>);
+        }).toList();
         setState(() {
-          _chats = data.map((m) => ChatModel.fromJson(m)).toList();
+          _chats = chats;
           _isLoading = false;
         });
       } else {
@@ -264,14 +270,9 @@ class _ChatlistState extends State<Chatlist> {
       decoration: BoxDecoration(
         color: AppTheme.corCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: BorderSide(color: accentColor, width: 4),
-          top: BorderSide(
-              color: AppTheme.corBorda.withOpacity(0.25), width: 0.5),
-          right: BorderSide(
-              color: AppTheme.corBorda.withOpacity(0.25), width: 0.5),
-          bottom: BorderSide(
-              color: AppTheme.corBorda.withOpacity(0.25), width: 0.5),
+        border: Border.all(
+          color: AppTheme.corBorda.withOpacity(0.25),
+          width: 0.5,
         ),
         boxShadow: [
           BoxShadow(
@@ -281,37 +282,77 @@ class _ChatlistState extends State<Chatlist> {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _abrirChat(chat),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 4,
+                    color: accentColor,
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          // Ícone
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: accentColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(Icons.chat_bubble_outline_rounded,
+                                color: accentColor, size: 20),
+                          ),
+                          const SizedBox(width: 14),
+                          // Título + subtítulo
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  titulo,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF2C2C2C),
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                const Text(
+                                  'Assistente Nutri',
+                                  style: TextStyle(
+                                      fontSize: 11.5, color: Color(0xFF8D6E63)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Color(0xFF8D6E63),
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          child: Icon(Icons.chat_bubble_outline_rounded,
-              color: accentColor, size: 20),
         ),
-        title: Text(
-          titulo,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.corTexto,
-          ),
-        ),
-        subtitle: Text(
-          'Conversa #${chat.id}',
-          style: const TextStyle(fontSize: 12, color: AppTheme.corSubtexto),
-        ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: AppTheme.corSubtexto,
-          size: 22,
-        ),
-        onTap: () => _abrirChat(chat),
       ),
     );
   }
@@ -352,28 +393,41 @@ class _ChatlistState extends State<Chatlist> {
                   ),
                 ),
                 // Botão atualizar
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded,
-                      color: AppTheme.corSecundaria),
-                  tooltip: 'Atualizar',
-                  onPressed: () {
-                    setState(() => _isLoading = true);
-                    _pedirChatList();
-                  },
+                SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: IconButton.outlined(
+                    padding: EdgeInsets.zero,
+                    iconSize: 17,
+                    icon: const Icon(Icons.refresh_rounded,
+                        color: AppTheme.corSecundaria),
+                    tooltip: 'Atualizar',
+                    style: IconButton.styleFrom(
+                      side: BorderSide(
+                          color: AppTheme.corSecundaria.withOpacity(0.4),
+                          width: 1),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      setState(() => _isLoading = true);
+                      _pedirChatList();
+                    },
+                  ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 8),
                 // Botão novo chat
                 ElevatedButton.icon(
                   onPressed: _criarNovoChat,
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('Novo chat'),
+                  icon: const Icon(Icons.add_rounded, size: 14),
+                  label: const Text('Novo'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                        horizontal: 12, vertical: 8),
                     textStyle: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.bold),
+                        fontSize: 12, fontWeight: FontWeight.bold),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ],
