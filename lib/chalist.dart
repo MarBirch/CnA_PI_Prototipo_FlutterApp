@@ -440,6 +440,36 @@ class _ChatlistState extends State<Chatlist> {
               indent: 20,
               endIndent: 20),
 
+          // ── Disclaimer da IA ────────────────────────────────────────────
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.corPrimaria.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: AppTheme.corPrimaria.withOpacity(0.2), width: 0.7),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 14, color: AppTheme.corPrimaria),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'A Nutri é uma IA e pode cometer erros. '
+                    'Consulte sempre um nutricionista qualificado.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppTheme.corPrimaria,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 8),
 
           // ── Conteúdo ───────────────────────────────────────────────────

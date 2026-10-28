@@ -8,6 +8,7 @@ import 'package:prototipo1/login.dart';
 import 'package:prototipo1/main_home_screen.dart';
 import 'package:prototipo1/splashscreen.dart';
 import 'package:prototipo1/carrinho_provider.dart';
+import 'package:prototipo1/recorrencia_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,6 +26,10 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CarrinhoProvider()),
+        ChangeNotifierProvider<RecorrenciaProvider>(
+          create: (_) => RecorrenciaProvider()..carregar(),
+          lazy: false,
+        ),
       ],
     child: Consumer<AuthProvider>(
       builder: (context, auth, _) {

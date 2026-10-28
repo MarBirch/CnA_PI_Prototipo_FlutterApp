@@ -74,9 +74,15 @@ class _ChatState extends State<Chat> {
         body: jsonEncode({'prompt': prompt, 'chatId': widget.chatId}),
       );
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final decoded = jsonDecode(response.body);
+        final String contentText;
+        if (decoded is Map<String, dynamic>) {
+          contentText = (decoded['content'] ?? decoded['response'] ?? response.body).toString();
+        } else {
+          contentText = decoded.toString();
+        }
         setState(() => _messages.add(
-            ChatMessage(data['content'] as String, 'ASSISTANT', false)));
+            ChatMessage(contentText, 'ASSISTANT', false)));
         return null;
       }
       return 'Erro: ${response.statusCode}';
@@ -275,6 +281,35 @@ class _ChatState extends State<Chat> {
                 ],
               ),
             ),
+
+          // ── Disclaimer da IA ───────────────────────────────────────────
+          Container(
+            margin: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppTheme.corPrimaria.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: AppTheme.corPrimaria.withOpacity(0.18), width: 0.7),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 13, color: AppTheme.corPrimaria),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'A Nutri é uma IA e pode cometer erros. Consulte sempre um nutricionista.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.corPrimaria,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
 
           // ── Campo de entrada ───────────────────────────────────────────
           Container(

@@ -3,8 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:prototipo1/app_theme.dart';
 import 'package:prototipo1/pedido_model.dart';
+import 'package:prototipo1/recorrencia_model.dart';
+import 'package:prototipo1/recorrencia_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Pedido extends StatefulWidget {
@@ -14,19 +17,44 @@ class Pedido extends StatefulWidget {
   State<Pedido> createState() => _PedidoState();
 }
 
-class _PedidoState extends State<Pedido> {
+class _PedidoState extends State<Pedido> with TickerProviderStateMixin {
   final _httpClient = http.Client();
   final _scrollController = ScrollController();
+  late final TabController _tabController;
 
   List<PedidoModel> _pedidos = [];
   bool _isLoading = true;
   String? _errorMsg;
   final Set<int> _expandedIds = {};
 
+  // Status que vão para o histórico (concluídos / cancelados)
+  static const _statusHistorico = {'CONCLUIDO', 'ENTREGUE', 'CANCELADO'};
+
+  List<PedidoModel> get _ativos => _pedidos
+      .where((p) => !_statusHistorico.contains((p.status as String).toUpperCase()))
+      .toList()
+        ..sort((a, b) =>
+            (b.dataCriada as DateTime).compareTo(a.dataCriada as DateTime));
+
+  List<PedidoModel> get _historico => _pedidos
+      .where((p) => _statusHistorico.contains((p.status as String).toUpperCase()))
+      .toList()
+        ..sort((a, b) =>
+            (b.dataCriada as DateTime).compareTo(a.dataCriada as DateTime));
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _pedirPedido();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _scrollController.dispose();
+    _httpClient.close();
+    super.dispose();
   }
 
   Future<void> _pedirPedido() async {
@@ -45,6 +73,9 @@ class _PedidoState extends State<Pedido> {
           _pedidos = data
               .map((e) => PedidoModel.fromJson(e as Map<String, dynamic>))
               .toList();
+          // Ordena todos os pedidos do mais recente ao mais antigo
+          _pedidos.sort((a, b) =>
+              (b.dataCriada as DateTime).compareTo(a.dataCriada as DateTime));
           _isLoading = false;
         });
       } else {
@@ -515,11 +546,15 @@ class _PedidoState extends State<Pedido> {
 
   @override
   Widget build(BuildContext context) {
+    final ativos    = _ativos;
+    final historico = _historico;
+
     return Scaffold(
       backgroundColor: AppTheme.corFundo,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Cabeçalho ────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
             child: Row(
@@ -559,32 +594,187 @@ class _PedidoState extends State<Pedido> {
               color: AppTheme.corBorda.withOpacity(0.3),
               indent: 20,
               endIndent: 20),
-          const SizedBox(height: 8),
+
+          // ── TabBar ───────────────────────────────────────────────────
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            decoration: BoxDecoration(
+              color: AppTheme.corCard,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: AppTheme.corBorda.withOpacity(0.2), width: 0.6),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: AppTheme.corPrimaria,
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelColor: Colors.white,
+              unselectedLabelColor: AppTheme.corSubtexto,
+              labelStyle: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700),
+              unselectedLabelStyle: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w500),
+              tabs: [
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.local_fire_department_rounded, size: 14),
+                      const SizedBox(width: 4),
+                      Text('Ativos (${ativos.length})'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.history_rounded, size: 14),
+                      const SizedBox(width: 4),
+                      Text('Histórico (${historico.length})'),
+                    ],
+                  ),
+                ),
+                Consumer<RecorrenciaProvider>(
+                  builder: (_, rec, __) => Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.repeat_rounded, size: 14),
+                        const SizedBox(width: 4),
+                        Text('Recorrentes (${rec.ativas.length})'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Conteúdo ─────────────────────────────────────────────────
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child:
-                        CircularProgressIndicator(color: AppTheme.corPrimaria))
+                    child: CircularProgressIndicator(
+                        color: AppTheme.corPrimaria))
                 : _errorMsg != null
                     ? _errorState()
-                    : _pedidos.isEmpty
-                        ? _emptyState()
-                        : RefreshIndicator(
-                            color: AppTheme.corPrimaria,
-                            backgroundColor: AppTheme.corCard,
-                            onRefresh: _pedirPedido,
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding:
-                                  const EdgeInsets.only(top: 4, bottom: 24),
-                              itemCount: _pedidos.length,
-                              itemBuilder: (_, i) => _buildPedido(_pedidos[i]),
-                            ),
+                        : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          // Aba 1: Ativos
+                          ativos.isEmpty
+                              ? _emptyState(
+                                  icon: Icons.check_circle_outline_rounded,
+                                  msg: 'Nenhum pedido ativo no momento.',
+                                )
+                              : RefreshIndicator(
+                                  color: AppTheme.corPrimaria,
+                                  backgroundColor: AppTheme.corCard,
+                                  onRefresh: _pedirPedido,
+                                  child: ListView.builder(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.only(
+                                        top: 4, bottom: 24),
+                                    itemCount: ativos.length,
+                                    itemBuilder: (_, i) =>
+                                        _buildPedido(ativos[i]),
+                                  ),
+                                ),
+
+                          // Aba 2: Histórico
+                          historico.isEmpty
+                              ? _emptyState(
+                                  icon: Icons.history_toggle_off_rounded,
+                                  msg: 'Nenhum pedido no histórico ainda.',
+                                )
+                              : RefreshIndicator(
+                                  color: AppTheme.corPrimaria,
+                                  backgroundColor: AppTheme.corCard,
+                                  onRefresh: _pedirPedido,
+                                  child: ListView.builder(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.only(
+                                        top: 4, bottom: 24),
+                                    itemCount: historico.length,
+                                    itemBuilder: (_, i) =>
+                                        _buildPedidoHistorico(historico[i]),
+                                  ),
+                                ),
+
+                          // Aba 3: Recorrentes
+                          Consumer<RecorrenciaProvider>(
+                            builder: (_, recProv, __) {
+                              final lista = recProv.recorrencias;
+                              if (lista.isEmpty) {
+                                return _emptyState(
+                                  icon: Icons.repeat_one_rounded,
+                                  msg:
+                                      'Nenhum pedido recorrente configurado.\nAgende uma recorrência no carrinho!',
+                                );
+                              }
+                              return ListView.builder(
+                                padding: const EdgeInsets.only(
+                                    top: 4, bottom: 24),
+                                itemCount: lista.length,
+                                itemBuilder: (_, i) =>
+                                    _buildRecorrenciaCard(
+                                        lista[i], recProv),
+                              );
+                            },
                           ),
+                        ],
+                      ),
           ),
         ],
       ),
+    );
+  }
+
+  // Card para pedidos do histórico — mostra botão "Avaliar" nos concluídos
+  Widget _buildPedidoHistorico(PedidoModel pedido) {
+    final statusUp = (pedido.status as String).toUpperCase();
+    final podAvaliar = statusUp == 'CONCLUIDO' || statusUp == 'ENTREGUE';
+    return Stack(
+      children: [
+        _buildPedido(pedido),
+        if (podAvaliar)
+          Positioned(
+            right: 28,
+            bottom: 22,
+            child: GestureDetector(
+              onTap: () => _abrirAvaliacao(pedido),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: Colors.amber.withOpacity(0.5), width: 0.7),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star_rounded, color: Colors.amber, size: 13),
+                    SizedBox(width: 4),
+                    Text('Avaliar',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -614,18 +804,571 @@ class _PedidoState extends State<Pedido> {
         ),
       );
 
-  Widget _emptyState() => Center(
+  Widget _emptyState({
+    IconData icon = Icons.receipt_long_outlined,
+    String msg = 'Nenhum pedido encontrado.',
+  }) =>
+      Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.receipt_long_outlined,
-                size: 52, color: AppTheme.corPrimaria.withOpacity(0.3)),
+            Icon(icon, size: 52, color: AppTheme.corPrimaria.withOpacity(0.3)),
             const SizedBox(height: 12),
-            const Text('Nenhum pedido encontrado.',
-                style: TextStyle(color: AppTheme.corSubtexto, fontSize: 14)),
+            Text(
+              msg,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: AppTheme.corSubtexto, fontSize: 14)),
           ],
         ),
       );
+
+  // ── Card de recorrência ───────────────────────────────────────────────
+
+  Widget _buildRecorrenciaCard(
+      RecorrenciaModel rec, RecorrenciaProvider provider) {
+    final accent =
+        rec.ativo ? AppTheme.corSecundaria : AppTheme.corSubtexto;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.corCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: rec.ativo
+                ? AppTheme.corSecundaria.withOpacity(0.3)
+                : AppTheme.corBorda.withOpacity(0.2),
+            width: 0.6),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // ── Cabeçalho ─────────────────────────────────────────────
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.07),
+              border: Border(
+                  bottom: BorderSide(
+                      color: accent.withOpacity(0.15), width: 0.5)),
+            ),
+            child: Row(
+              children: [
+                // Ícone de recorrência
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: accent.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.repeat_rounded, color: accent, size: 15),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        rec.nomeMarmita,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.corTexto),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${rec.nomeCardapio}  ·  ${rec.nomeMarmiteria}',
+                        style: const TextStyle(
+                            fontSize: 11, color: AppTheme.corSubtexto),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                // Toggle ativo/inativo
+                Switch(
+                  value: rec.ativo,
+                  onChanged: (_) => provider.alternarAtivo(rec.id),
+                  activeColor: AppTheme.corSecundaria,
+                ),
+              ],
+            ),
+          ),
+
+          // ── Informações ───────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+            child: Column(
+              children: [
+                // Dias da semana
+                _recInfoRow(
+                  Icons.calendar_today_rounded,
+                  'Dias de entrega',
+                  rec.nomeDias,
+                  accent,
+                ),
+                const SizedBox(height: 6),
+                // Duração
+                _recInfoRow(
+                  rec.semanasRestantes == null
+                      ? Icons.all_inclusive_rounded
+                      : Icons.event_repeat_rounded,
+                  'Recorrência',
+                  rec.resumoSemanas,
+                  rec.semanasRestantes == null
+                      ? AppTheme.corPrimaria
+                      : AppTheme.corDestaque,
+                ),
+                const SizedBox(height: 6),
+                // Valor estimado
+                _recInfoRow(
+                  Icons.attach_money_rounded,
+                  'Valor estimado / pedido',
+                  'R\$ ${rec.valorEstimado.toStringAsFixed(2)}',
+                  AppTheme.corDestaque,
+                ),
+
+                if (!rec.ativo) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.corErro.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.pause_circle_outline_rounded,
+                            color: AppTheme.corErro, size: 14),
+                        SizedBox(width: 6),
+                        Text('Recorrência pausada',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.corErro,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 10),
+                Divider(
+                    height: 1, color: AppTheme.corBorda.withOpacity(0.2)),
+                const SizedBox(height: 8),
+
+                // Botões de ação
+                Row(
+                  children: [
+                    // Editar
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _editarRecorrencia(rec, provider),
+                        icon: const Icon(
+                            Icons.edit_calendar_rounded,
+                            size: 14),
+                        label: const Text('Editar',
+                            style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.corPrimaria,
+                          side: BorderSide(
+                              color: AppTheme.corPrimaria
+                                  .withOpacity(0.5)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Remover
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: AppTheme.corCard,
+                            shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(16)),
+                            title: const Text(
+                                'Remover recorrência?',
+                                style: TextStyle(
+                                    color: AppTheme.corTexto,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold)),
+                            content: const Text(
+                                'A marmita não será mais pedida automaticamente.',
+                                style: TextStyle(
+                                    color: AppTheme.corSubtexto,
+                                    fontSize: 13)),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, false),
+                                child: const Text('Cancelar',
+                                    style: TextStyle(
+                                        color: AppTheme.corSubtexto)),
+                              ),
+                              ElevatedButton(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, true),
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.corErro),
+                                child: const Text('Remover'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (ok == true) await provider.remover(rec.id);
+                      },
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          size: 14),
+                      label: const Text('Remover',
+                          style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.corErro,
+                        side: BorderSide(
+                            color: AppTheme.corErro.withOpacity(0.5)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recInfoRow(
+      IconData icon, String label, String value, Color color) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 8),
+            Text('$label: ',
+                style: const TextStyle(
+                    fontSize: 12, color: AppTheme.corSubtexto)),
+            Expanded(
+              child: Text(
+                value,
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: color),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  void _editarRecorrencia(
+      RecorrenciaModel rec, RecorrenciaProvider provider) async {
+    // Multiselect: usa Set para controlar dias marcados
+    final Set<int> diasSel = Set<int>.from(rec.diasSemana);
+    bool indefinida = rec.semanasRestantes == null;
+    int? semanas = rec.semanasRestantes;
+    final semCtrl =
+        TextEditingController(text: semanas != null ? '$semanas' : '');
+
+    const opcoesDias = [
+      (1, 'Seg'), (2, 'Ter'), (3, 'Qua'),
+      (4, 'Qui'), (5, 'Sex'), (6, 'Sáb'), (7, 'Dom'),
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Container(
+          padding: EdgeInsets.only(
+            top: 4,
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.corCard,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.corBorda.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.corSecundaria.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.edit_calendar_rounded,
+                          color: AppTheme.corSecundaria, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Editar recorrência',
+                              style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.corTexto)),
+                          Text(rec.nomeMarmita,
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.corSubtexto),
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                // Dias da semana — multiselect
+                const Text('DIAS DE ENTREGA',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.corSubtexto,
+                        letterSpacing: 1.0)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Toque para selecionar um ou mais dias.',
+                  style: TextStyle(fontSize: 11, color: AppTheme.corSubtexto),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: opcoesDias.map((d) {
+                    final (num, nome) = d;
+                    final sel = diasSel.contains(num);
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setSheet(() {
+                          if (sel) {
+                            // Impede desmarcar se for o único selecionado
+                            if (diasSel.length > 1) diasSel.remove(num);
+                          } else {
+                            diasSel.add(num);
+                          }
+                        }),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: sel
+                                ? AppTheme.corSecundaria
+                                : AppTheme.corFundo,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: sel
+                                    ? AppTheme.corSecundaria
+                                    : AppTheme.corBorda.withOpacity(0.35),
+                                width: sel ? 0 : 0.8),
+                            boxShadow: sel
+                                ? [
+                                    BoxShadow(
+                                      color: AppTheme.corSecundaria
+                                          .withOpacity(0.3),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    )
+                                  ]
+                                : [],
+                          ),
+                          child: Text(
+                            nome,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: sel
+                                    ? Colors.white
+                                    : AppTheme.corTexto),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 18),
+                const Text('DURAÇÃO',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.corSubtexto,
+                        letterSpacing: 1.0)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setSheet(() => indefinida = true),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: indefinida
+                                ? AppTheme.corSecundaria.withOpacity(0.12)
+                                : AppTheme.corFundo,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: indefinida
+                                    ? AppTheme.corSecundaria
+                                    : AppTheme.corBorda.withOpacity(0.3),
+                                width: 0.8),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.all_inclusive_rounded,
+                                  color: indefinida
+                                      ? AppTheme.corSecundaria
+                                      : AppTheme.corSubtexto,
+                                  size: 20),
+                              const SizedBox(height: 4),
+                              Text('Indefinido',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: indefinida
+                                          ? AppTheme.corSecundaria
+                                          : AppTheme.corTexto)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setSheet(() => indefinida = false),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: !indefinida
+                                ? AppTheme.corSecundaria.withOpacity(0.12)
+                                : AppTheme.corFundo,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: !indefinida
+                                    ? AppTheme.corSecundaria
+                                    : AppTheme.corBorda.withOpacity(0.3),
+                                width: 0.8),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.date_range_rounded,
+                                  color: !indefinida
+                                      ? AppTheme.corSecundaria
+                                      : AppTheme.corSubtexto,
+                                  size: 20),
+                              const SizedBox(height: 4),
+                              Text('Por semanas',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: !indefinida
+                                          ? AppTheme.corSecundaria
+                                          : AppTheme.corTexto)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (!indefinida) ...[
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: semCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Número de semanas',
+                      labelStyle: const TextStyle(
+                          color: AppTheme.corSubtexto, fontSize: 13),
+                      prefixIcon: const Icon(Icons.event_repeat_rounded,
+                          color: AppTheme.corSecundaria, size: 18),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                            color: AppTheme.corSecundaria, width: 1.4),
+                      ),
+                    ),
+                    onChanged: (v) => semanas = int.tryParse(v),
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (diasSel.isEmpty) return;
+                    Navigator.pop(ctx);
+                    await provider.alterarDias(
+                        rec.id, diasSel.toList()..sort());
+                    await provider.alterarSemanas(
+                        rec.id,
+                        indefinida
+                            ? null
+                            : (int.tryParse(semCtrl.text) ?? semanas));
+                  },
+                  style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 46),
+                      backgroundColor: AppTheme.corSecundaria),
+                  child: const Text('Salvar alterações'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    semCtrl.dispose();
+  }
 }
 
 // ── Barra de progresso do status ─────────────────────────────────────────

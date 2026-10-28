@@ -7,6 +7,8 @@ import 'package:prototipo1/app_theme.dart';
 import 'package:prototipo1/cardapio.dart';
 import 'package:prototipo1/carrinho_provider.dart';
 import 'package:prototipo1/marmiteria.dart';
+import 'package:prototipo1/recorrencia_model.dart';
+import 'package:prototipo1/recorrencia_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ── Página do Carrinho ───────────────────────────────────────────────────────
@@ -37,6 +39,15 @@ class _CarrinhoState extends State<Carrinho> {
   String? _errorMsg;
   String _nomeCliente = '';
 
+  // ── Agendamento & Recorrência ──────────────────────────────────────────────
+  /// Dias da semana agendados; vazio = entrega imediata (sem agendamento)
+  final Set<int> _diasSemana = {};
+  /// Configurar como pedido recorrente?
+  bool _configurarRecorrencia = false;
+  /// null = indefinido; valor = número de semanas
+  int? _semanasRecorrencia;
+  bool _recorrenciaIndefinida = true;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +75,425 @@ class _CarrinhoState extends State<Carrinho> {
     setState(() => _nomeCliente = prefs.getString('username') ?? '');
   }
 
+  Future<void> _abrirAgendamento() async {
+    // Copia o estado atual para variáveis locais do sheet
+    final diasSelecionados = Set<int>.from(_diasSemana);
+    bool configurarRec = _configurarRecorrencia;
+    int? semanasRec = _semanasRecorrencia;
+    bool indefinida = _recorrenciaIndefinida;
+    final semCtrl = TextEditingController(
+        text: semanasRec != null ? '$semanasRec' : '');
+
+    const diasSemana = [
+      (1, 'Segunda'),
+      (2, 'Terça'),
+      (3, 'Quarta'),
+      (4, 'Quinta'),
+      (5, 'Sexta'),
+      (6, 'Sábado'),
+      (7, 'Domingo'),
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Container(
+          padding: EdgeInsets.only(
+            top: 4,
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.corCard,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Alça
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.corBorda.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+
+                // ── Título ─────────────────────────────────────────
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.corPrimaria.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.calendar_today_rounded,
+                          color: AppTheme.corPrimaria, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Agendar entrega',
+                            style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.corTexto)),
+                        Text('Selecione um ou mais dias da semana',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.corSubtexto)),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // ── Opção: sem agendamento ───────────────────────────
+                GestureDetector(
+                  onTap: () => setSheet(() => diasSelecionados.clear()),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 11),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: diasSelecionados.isEmpty
+                          ? AppTheme.corPrimaria.withOpacity(0.12)
+                          : AppTheme.corFundo,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: diasSelecionados.isEmpty
+                              ? AppTheme.corPrimaria
+                              : AppTheme.corBorda.withOpacity(0.3),
+                          width: diasSelecionados.isEmpty ? 1.2 : 0.6),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.flash_on_rounded,
+                            size: 17,
+                            color: diasSelecionados.isEmpty
+                                ? AppTheme.corPrimaria
+                                : AppTheme.corSubtexto),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Entrega imediata (sem agendamento)',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: diasSelecionados.isEmpty
+                                  ? AppTheme.corPrimaria
+                                  : AppTheme.corTexto),
+                        ),
+                        if (diasSelecionados.isEmpty) ...[
+                          const Spacer(),
+                          const Icon(Icons.check_circle_rounded,
+                              color: AppTheme.corPrimaria, size: 18),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── Label com contador ───────────────────────────────
+                Row(
+                  children: [
+                    const Text(
+                      'DIAS DA SEMANA',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.corSubtexto,
+                          letterSpacing: 1.0),
+                    ),
+                    const SizedBox(width: 8),
+                    if (diasSelecionados.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.corPrimaria,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${diasSelecionados.length} selecionado${diasSelecionados.length != 1 ? 's' : ''}',
+                          style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // ── Pills de dias (multi-select) ───────────────────────
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: diasSemana.map((d) {
+                    final (num, nome) = d;
+                    final sel = diasSelecionados.contains(num);
+                    return GestureDetector(
+                      onTap: () => setSheet(() {
+                        if (sel) {
+                          diasSelecionados.remove(num);
+                        } else {
+                          diasSelecionados.add(num);
+                        }
+                      }),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: sel
+                              ? AppTheme.corPrimaria
+                              : AppTheme.corFundo,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: sel
+                                  ? AppTheme.corPrimaria
+                                  : AppTheme.corBorda.withOpacity(0.35),
+                              width: 0.8),
+                          boxShadow: sel
+                              ? [
+                                  BoxShadow(
+                                      color: AppTheme.corPrimaria
+                                          .withOpacity(0.25),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2))
+                                ]
+                              : [],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (sel) ...[
+                              const Icon(Icons.check_rounded,
+                                  size: 13, color: Colors.white),
+                              const SizedBox(width: 5),
+                            ],
+                            Text(
+                              nome,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: sel
+                                      ? Colors.white
+                                      : AppTheme.corTexto),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 20),
+                Divider(
+                    height: 1,
+                    color: AppTheme.corBorda.withOpacity(0.3)),
+                const SizedBox(height: 16),
+
+                // ── Recorrência ─────────────────────────────────────
+                Row(
+                  children: [
+                    const Icon(Icons.repeat_rounded,
+                        color: AppTheme.corSecundaria, size: 20),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Pedido recorrente',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.corTexto)),
+                          Text(
+                              'Repetir automaticamente nos dias selecionados',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.corSubtexto)),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: configurarRec,
+                      onChanged: (v) =>
+                          setSheet(() => configurarRec = v),
+                      activeColor: AppTheme.corSecundaria,
+                    ),
+                  ],
+                ),
+
+                if (configurarRec) ...[
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () =>
+                              setSheet(() => indefinida = true),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: indefinida
+                                  ? AppTheme.corSecundaria
+                                      .withOpacity(0.12)
+                                  : AppTheme.corFundo,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: indefinida
+                                      ? AppTheme.corSecundaria
+                                      : AppTheme.corBorda
+                                          .withOpacity(0.3),
+                                  width: 0.8),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.all_inclusive_rounded,
+                                    color: indefinida
+                                        ? AppTheme.corSecundaria
+                                        : AppTheme.corSubtexto,
+                                    size: 22),
+                                const SizedBox(height: 4),
+                                Text('Indefinido',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: indefinida
+                                            ? AppTheme.corSecundaria
+                                            : AppTheme.corTexto)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () =>
+                              setSheet(() => indefinida = false),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: !indefinida
+                                  ? AppTheme.corSecundaria
+                                      .withOpacity(0.12)
+                                  : AppTheme.corFundo,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: !indefinida
+                                      ? AppTheme.corSecundaria
+                                      : AppTheme.corBorda
+                                          .withOpacity(0.3),
+                                  width: 0.8),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.date_range_rounded,
+                                    color: !indefinida
+                                        ? AppTheme.corSecundaria
+                                        : AppTheme.corSubtexto,
+                                    size: 22),
+                                const SizedBox(height: 4),
+                                Text('Por semanas',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: !indefinida
+                                            ? AppTheme.corSecundaria
+                                            : AppTheme.corTexto)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (!indefinida) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: semCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Número de semanas',
+                        labelStyle: const TextStyle(
+                            color: AppTheme.corSubtexto, fontSize: 13),
+                        hintText: 'Ex.: 4',
+                        prefixIcon: const Icon(
+                            Icons.event_repeat_rounded,
+                            color: AppTheme.corSecundaria,
+                            size: 18),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                              color:
+                                  AppTheme.corBorda.withOpacity(0.4)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                              color: AppTheme.corSecundaria,
+                              width: 1.4),
+                        ),
+                      ),
+                      onChanged: (v) => semanasRec = int.tryParse(v),
+                    ),
+                  ],
+                ],
+
+                const SizedBox(height: 20),
+                // ── Confirmar ─────────────────────────────────────────
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      _diasSemana
+                        ..clear()
+                        ..addAll(diasSelecionados);
+                      _configurarRecorrencia = configurarRec;
+                      _semanasRecorrencia =
+                          configurarRec && !indefinida
+                              ? (int.tryParse(semCtrl.text) ??
+                                  semanasRec)
+                              : null;
+                      _recorrenciaIndefinida = indefinida;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 46)),
+                  child: const Text('Confirmar agendamento'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    semCtrl.dispose();
+  }
+
   Future<void> _confirmarPedido() async {
     final carrinho = context.read<CarrinhoProvider>();
     if (carrinho.isEmpty) return;
@@ -75,7 +505,7 @@ class _CarrinhoState extends State<Carrinho> {
 
     final url = Uri.parse('http://localhost:8080/apiPedido/inserir');
 
-    // Prepara as requisições para cada marmita (considerando a quantidade de cada uma)
+    // Prepara as requisições para cada marmita (considerando a quantidade)
     final List<Map<String, dynamic>> requests = [];
 
     for (final marmita in carrinho.marmitas) {
@@ -91,6 +521,8 @@ class _CarrinhoState extends State<Carrinho> {
                     'posicao': item.ingrediente.posicao,
                   })
               .toList(),
+          if (_diasSemana.isNotEmpty)
+            'diasSemanaEntrega': _diasSemana.toList(),
         });
       }
     }
@@ -112,6 +544,40 @@ class _CarrinhoState extends State<Carrinho> {
 
       if (mounted) {
         if (todosSucesso) {
+          // ── Salvar recorrências se configurado ──────────────────────
+          if (_configurarRecorrencia && _diasSemana.isNotEmpty) {
+            final recProv = context.read<RecorrenciaProvider>();
+            for (final marmita in carrinho.marmitas) {
+              await recProv.adicionar(
+                RecorrenciaModel(
+                  id: '${DateTime.now().millisecondsSinceEpoch}_${marmita.id}',
+                  nomeMarmita: marmita.nomeCustomizado,
+                  nomeCardapio: marmita.cardapio.nome,
+                  cardapioId: marmita.cardapio.id,
+                  nomeMarmiteria: marmita.marmiteria.nome,
+                  ingredientes: marmita.ingredientes
+                      .map((item) => {
+                            'nome': item.ingrediente.nome,
+                            'valorPorGramas':
+                                item.ingrediente.valorPorGramas,
+                            'gramas': item.gramas,
+                            'posicao': item.ingrediente.posicao,
+                          })
+                      .toList(),
+                  diasSemana: _diasSemana.toList(),
+                  semanasRestantes: _recorrenciaIndefinida
+                      ? null
+                      : _semanasRecorrencia,
+                  totalSemanas: _recorrenciaIndefinida
+                      ? null
+                      : _semanasRecorrencia,
+                  valorEstimado: marmita.subtotalUnidade,
+                  criadoEm: DateTime.now(),
+                ),
+              );
+            }
+          }
+
           setState(() {
             _pedidosConcluidosCount = requests.length;
             _valorTotalFinal = totalPago;
@@ -120,7 +586,8 @@ class _CarrinhoState extends State<Carrinho> {
           });
           carrinho.limparCarrinho();
         } else {
-          final comErro = responses.where((r) => r.statusCode != 201).length;
+          final comErro =
+              responses.where((r) => r.statusCode != 201).length;
           setState(() {
             _errorMsg =
                 'Erro ao enviar $comErro de ${requests.length} marmitas. Tente novamente.';
@@ -449,6 +916,14 @@ class _CarrinhoState extends State<Carrinho> {
       );
 
   Widget _rodape(CarrinhoProvider carrinho) {
+    // Converte dias ISO para nomes curtos — usa _diasSemana (Set<int>)
+    const nomesDia = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+    final nomeAgendado = _diasSemana.isNotEmpty
+        ? (_diasSemana.toList()..sort())
+            .map((d) => nomesDia[d.clamp(1, 7)])
+            .join(', ')
+        : null;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       decoration: BoxDecoration(
@@ -485,6 +960,64 @@ class _CarrinhoState extends State<Carrinho> {
               ),
             ),
           ],
+
+          // ── Botão de agendamento ───────────────────────────────────
+          GestureDetector(
+            onTap: _isLoading ? null : _abrirAgendamento,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: nomeAgendado != null
+                    ? AppTheme.corPrimaria.withOpacity(0.08)
+                    : AppTheme.corFundo,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: nomeAgendado != null
+                        ? AppTheme.corPrimaria.withOpacity(0.4)
+                        : AppTheme.corBorda.withOpacity(0.3),
+                    width: 0.8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    nomeAgendado != null
+                        ? Icons.event_available_rounded
+                        : Icons.calendar_today_rounded,
+                    size: 16,
+                    color: nomeAgendado != null
+                        ? AppTheme.corPrimaria
+                        : AppTheme.corSubtexto,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      nomeAgendado != null
+                          ? 'Entrega: $nomeAgendado${_configurarRecorrencia ? ' · Recorrente' : ''}'
+                              '${_configurarRecorrencia && !_recorrenciaIndefinida && _semanasRecorrencia != null ? ' (${_semanasRecorrencia}x)' : _configurarRecorrencia ? ' (indefinido)' : ''}'
+                          : 'Agendar entrega ou recorrência',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: nomeAgendado != null
+                              ? AppTheme.corPrimaria
+                              : AppTheme.corSubtexto),
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: nomeAgendado != null
+                        ? AppTheme.corPrimaria
+                        : AppTheme.corSubtexto,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Linha de botões ───────────────────────────────────────
           Row(
             children: [
               OutlinedButton.icon(
@@ -512,7 +1045,8 @@ class _CarrinhoState extends State<Carrinho> {
                         onPressed:
                             carrinho.isEmpty ? null : _confirmarPedido,
                         icon: const Icon(Icons.check_rounded, size: 18),
-                        label: Text('Finalizar (${carrinho.totalMarmitasCount})'),
+                        label: Text(
+                            'Finalizar (${carrinho.totalMarmitasCount})'),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 48),
                         ),
